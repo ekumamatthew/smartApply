@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "SmartApply - AI Job Assistant",
+  "version": "1.0.0",
+  "description": "Automatically extract job details and generate professional application emails with AI",
+
+  "permissions": ["activeTab", "storage", "scripting", "tabs"],
+
+  "host_permissions": [
+    "https://*.linkedin.com/*",
+    "https://*.indeed.com/*",
+    "https://*.glassdoor.com/*",
+    "https://*.monster.com/*",
+    "https://*.ziprecruiter.com/*",
+    "http://localhost:3000/*",
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "SmartApply",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "externally_connectable": {
+    "matches": ["http://localhost:3000/*"]
+  },
+
+  "author": "SmartApply Team",
+  "homepage_url": "http://localhost:3000",
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}

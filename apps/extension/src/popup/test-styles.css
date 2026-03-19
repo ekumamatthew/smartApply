@@ -1,0 +1,50 @@
+/* Simple test styles to verify Tailwind is working */
+.test-tailwind {
+  @apply bg-blue-500 text-white p-4 rounded-lg;
+}
+
+/* Ensure basic Tailwind utilities are available */
+.bg-white {
+  background-color: white !important;
+}
+
+.text-gray-900 {
+  color: #111827 !important;
+}
+
+.text-blue-600 {
+  color: #2563eb !important;
+}
+
+.bg-blue-50 {
+  background-color: #eff6ff !important;
+}
+
+.bg-purple-50 {
+  background-color: #faf5ff !important;
+}
+
+.border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+.rounded-2xl {
+  border-radius: 1rem !important;
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px) !important;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
