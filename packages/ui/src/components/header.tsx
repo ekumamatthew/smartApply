@@ -14,10 +14,7 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
     return (
       <header
         ref={ref}
-        className={cn(
-          "sticky top-0 z-50 flex w-full justify-center border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60",
-          className
-        )}
+        className={cn("w-full justify-between", className)}
         {...props}
       >
         <div className="container flex h-16 items-center justify-between px-4">
@@ -53,17 +50,7 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
           </nav>
 
           <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hidden md:inline-flex"
-              asChild
-            >
-              <a href="/signin">Sign In</a>
-            </Button>
-            <Button size="sm" className="hidden md:inline-flex" asChild>
-              <a href="/signup">Get Started</a>
-            </Button>
+
 
             {/* Mobile Menu Button */}
             <Button
@@ -103,19 +90,7 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
               >
                 Testimonials
               </a>
-              <div className="space-y-2 pt-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  asChild
-                >
-                  <a href="/signin">Sign In</a>
-                </Button>
-                <Button size="sm" className="w-full justify-start" asChild>
-                  <a href="/signup">Get Started</a>
-                </Button>
-              </div>
+
             </nav>
           </div>
         )}

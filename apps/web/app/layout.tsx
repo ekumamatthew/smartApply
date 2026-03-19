@@ -33,7 +33,7 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-       {children}
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>

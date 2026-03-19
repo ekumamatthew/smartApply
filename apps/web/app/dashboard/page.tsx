@@ -1,7 +1,7 @@
 "use client"
 
+import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import { Button } from "@workspace/ui/components/button"
-import { DashboardLayout } from "@workspace/ui/components/dashboard-layout"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import {
@@ -43,7 +43,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <DashboardLayout>
+    <AuthenticatedDashboardLayout>
       <div className="space-y-6 p-6">
         {/* Welcome Header */}
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
@@ -292,6 +292,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </AuthenticatedDashboardLayout>
   )
 }
