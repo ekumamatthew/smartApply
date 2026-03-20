@@ -1,5 +1,7 @@
 import {
   boolean,
+  integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -55,6 +57,49 @@ export const verification = pgTable('verification', {
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
   expiresAt: timestamp('expiresAt').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- Email Threads -----
+export const emailThread = pgTable('email_threads', {
+  id: text('id').primaryKey(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  jobDescription: text('jobDescription').notNull(),
+  jobDescriptionHash: text('jobDescriptionHash').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- Email Messages -----
+export const emailMessage = pgTable('email_messages', {
+  id: text('id').primaryKey(),
+  threadId: text('threadId')
+    .notNull()
+    .references(() => emailThread.id, { onDelete: 'cascade' }),
+  promptContext: text('promptContext'),
+  tone: text('tone'),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  keyHighlights: text('keyHighlights').array().notNull().default([]),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
+// ----- Uploaded CV Documents -----
+export const cvDocument = pgTable('cv_documents', {
+  id: text('id').primaryKey(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  fileName: text('fileName').notNull(),
+  storedPath: text('storedPath').notNull(),
+  mimeType: text('mimeType').notNull(),
+  sizeBytes: integer('sizeBytes').notNull(),
+  isDefault: boolean('isDefault').notNull().default(false),
+  parsedCvJson: jsonb('parsedCvJson'),
+  parsedCvUpdatedAt: timestamp('parsedCvUpdatedAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });

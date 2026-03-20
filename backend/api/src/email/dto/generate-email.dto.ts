@@ -1,6 +1,17 @@
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class GenerateEmailDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  cvId?: string;
+
   @IsString()
   @MinLength(30)
   @MaxLength(20000)

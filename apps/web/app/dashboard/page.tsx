@@ -2,45 +2,119 @@
 
 import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import {
-  generateApplicationEmail,
-  parseCvFile,
-} from "@/src/lib/email-generator-api"
+  fetchCvParsedPreview,
+  type CvRecord,
+  type ParsedCvSections,
+  fetchCvs,
+  setDefaultCv,
+  uploadCv,
+} from "@/src/lib/dashboard-api"
+import { generateApplicationEmail } from "@/src/lib/email-generator-api"
 import {
   emailGeneratorFormAtom,
   generatedEmailAtom,
   generatorErrorAtom,
-  parsedCvAtom,
-  uploadedCvAtom,
 } from "@/src/state/email-generator"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAtom } from "jotai"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { Copy, FileText, Loader2, Mail, Sparkles, Upload } from "lucide-react"
+import { CheckCircle2, Copy, Loader2, Mail, Sparkles, Upload } from "lucide-react"
+import * as React from "react"
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message
+  }
+
+  return fallback
+}
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient()
+
   const [form, setForm] = useAtom(emailGeneratorFormAtom)
-  const [cvFile, setCvFile] = useAtom(uploadedCvAtom)
-  const [parsedCv, setParsedCv] = useAtom(parsedCvAtom)
   const [generatedEmail, setGeneratedEmail] = useAtom(generatedEmailAtom)
   const [error, setError] = useAtom(generatorErrorAtom)
+  const [showCvPicker, setShowCvPicker] = React.useState(false)
+  const uploadCvInputRef = React.useRef<HTMLInputElement | null>(null)
+  const [parsedCv, setParsedCv] = React.useState<ParsedCvSections | null>(null)
+  const [parsedCvName, setParsedCvName] = React.useState<string>("")
+  const [parsedFromCache, setParsedFromCache] = React.useState<boolean>(false)
 
-  const parseCvMutation = useMutation({
-    mutationFn: async (file: File) => parseCvFile(file),
-    onSuccess: (data) => {
-      setParsedCv(data.parsed)
+  const cvsQuery = useQuery({
+    queryKey: ["cv-list"],
+    queryFn: fetchCvs,
+  })
+
+  const cvs = cvsQuery.data || []
+  const defaultCv = React.useMemo(
+    () => cvs.find((item) => item.isDefault) ?? cvs[0] ?? null,
+    [cvs]
+  )
+
+  const uploadCvMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const uploaded = await uploadCv(file)
+      if (!uploaded?.id) {
+        throw new Error("Upload completed but CV record was not returned")
+      }
+      const parsedResult = await fetchCvParsedPreview(uploaded.id)
+      return { uploaded, parsedResult, fileName: file.name }
+    },
+    onSuccess: async ({ parsedResult, fileName }) => {
+      await queryClient.invalidateQueries({ queryKey: ["cv-list"] })
+      setParsedCv(parsedResult.parsed)
+      setParsedCvName(fileName)
+      setParsedFromCache(parsedResult.fromCache)
       setError("")
     },
     onError: (err: unknown) => {
-      setError(getErrorMessage(err, "Failed to parse CV"))
+      setError(getErrorMessage(err, "Failed to upload CV"))
+    },
+  })
+
+  const setDefaultMutation = useMutation({
+    mutationFn: async (cvId: string) => setDefaultCv(cvId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cv-list"] })
+      setError("")
+      setShowCvPicker(false)
+    },
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to set default CV"))
+    },
+  })
+
+  const loadDefaultCvParsedMutation = useMutation({
+    mutationFn: async ({
+      cvId,
+    }: {
+      cvId: string
+    }) => fetchCvParsedPreview(cvId, false),
+    onSuccess: (data) => {
+      setParsedCv(data.parsed)
+      setParsedCvName(data.fileName)
+      setParsedFromCache(data.fromCache)
+      setError("")
+    },
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to load parsed CV"))
     },
   })
 
   const generateEmailMutation = useMutation({
     mutationFn: async () => {
-      if (!cvFile) {
-        throw new Error("Please upload your CV first")
+      if (!defaultCv?.id) {
+        throw new Error("Upload a CV and set one as default first")
       }
 
       if (form.jobDescription.trim().length < 30) {
@@ -52,7 +126,7 @@ export default function DashboardPage() {
       }
 
       return generateApplicationEmail({
-        cv: cvFile,
+        cvId: defaultCv.id,
         jobDescription: form.jobDescription,
         recipientEmail: form.recipientEmail,
         recipientName: form.recipientName || undefined,
@@ -72,19 +146,27 @@ export default function DashboardPage() {
     },
   })
 
-  const handleFieldChange = (
-    field: keyof typeof form,
-    value: string
-  ) => {
+  const handleFieldChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleCopyEmail = async () => {
     if (!generatedEmail) return
-
     const fullEmail = `Subject: ${generatedEmail.subject}\n\n${generatedEmail.body}`
     await navigator.clipboard.writeText(fullEmail)
   }
+
+  React.useEffect(() => {
+    if (!defaultCv?.id) {
+      setParsedCv(null)
+      setParsedCvName("")
+      setParsedFromCache(false)
+      return
+    }
+
+    loadDefaultCvParsedMutation.mutate({ cvId: defaultCv.id })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultCv?.id])
 
   return (
     <AuthenticatedDashboardLayout>
@@ -92,7 +174,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">AI Email Generator</h1>
           <p className="text-muted-foreground">
-            Upload CV, paste job description, and generate a tailored application email.
+            Select your default CV, paste job details, and generate a tailored application email.
           </p>
         </div>
 
@@ -104,45 +186,86 @@ export default function DashboardPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-5 rounded-xl border bg-card p-5">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Upload CV
-              </Label>
-              <Input
+            <div className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium">Default CV</Label>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => uploadCvInputRef.current?.click()}
+                  disabled={uploadCvMutation.isPending}
+                  title="Upload CV"
+                >
+                  {uploadCvMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+
+              <input
+                ref={uploadCvInputRef}
                 type="file"
                 accept=".txt,.md,.pdf,.doc,.docx,.pptx"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null
-                  setCvFile(file)
-                  setParsedCv(null)
-                  setGeneratedEmail(null)
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) {
+                    uploadCvMutation.mutate(file)
+                  }
+                  event.currentTarget.value = ""
                 }}
               />
-              <p className="text-xs text-muted-foreground">
-                Supported: txt, pdf, doc, docx, pptx (max 10MB)
+
+              <p className="text-sm text-muted-foreground">
+                {defaultCv ? defaultCv.fileName : "No CV yet. Click upload icon."}
               </p>
-              {cvFile && (
-                <p className="text-sm text-foreground">Selected: {cvFile.name}</p>
-              )}
+
               <Button
                 type="button"
                 variant="outline"
-                disabled={!cvFile || parseCvMutation.isPending}
-                onClick={() => cvFile && parseCvMutation.mutate(cvFile)}
+                size="sm"
+                onClick={() => setShowCvPicker((prev) => !prev)}
+                disabled={cvs.length === 0}
               >
-                {parseCvMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Parsing CV...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Parse CV Sections
-                  </>
-                )}
+                Choose / Set Default CV
               </Button>
+
+              {showCvPicker ? (
+                <div className="mt-2 space-y-2 rounded-md border bg-muted/30 p-2">
+                  {cvs.map((item: CvRecord) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded border bg-background p-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{item.fileName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.isDefault ? "Current default" : "Set as default"}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={item.isDefault ? "default" : "outline"}
+                        disabled={setDefaultMutation.isPending || item.isDefault}
+                        onClick={() => setDefaultMutation.mutate(item.id)}
+                      >
+                        {item.isDefault ? (
+                          <>
+                            <CheckCircle2 className="mr-1 h-4 w-4" />
+                            Default
+                          </>
+                        ) : (
+                          "Make Default"
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -246,33 +369,42 @@ export default function DashboardPage() {
 
           <div className="space-y-5">
             <div className="rounded-xl border bg-card p-5">
-              <h2 className="mb-3 text-lg font-semibold">Parsed CV Insights</h2>
-              {!parsedCv ? (
-                <p className="text-sm text-muted-foreground">
-                  Parse your CV to preview extracted skills, experience, and education.
-                </p>
-              ) : (
-                <div className="space-y-4 text-sm">
-                  <div>
-                    <p className="font-medium">Summary</p>
-                    <p className="text-muted-foreground">{parsedCv.summary}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Top Skills</p>
-                    <p className="text-muted-foreground">
-                      {parsedCv.skills.slice(0, 10).join(", ") || "None detected"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Experience Highlights</p>
-                    <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                      {parsedCv.experience.slice(0, 4).map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
+              <h2 className="mb-3 text-lg font-semibold">CV Status</h2>
+              <div className="space-y-2 text-sm">
+                <p className="text-muted-foreground">Current default CV</p>
+                <div className="rounded-md border bg-background p-3">
+                  {defaultCv ? defaultCv.fileName : "No default CV selected"}
                 </div>
-              )}
+                {parsedCv ? (
+                  <div className="mt-3 space-y-3 rounded-md border bg-background p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Parsed CV: {parsedCvName || "Selected CV"}{" "}
+                      {parsedFromCache ? "(cached)" : "(fresh parse)"}
+                    </p>
+                    <div>
+                      <p className="font-medium">Summary</p>
+                      <p className="text-muted-foreground">{parsedCv.summary}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Top Skills</p>
+                      <p className="text-muted-foreground">
+                        {parsedCv.skills.slice(0, 10).join(", ") || "None detected"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Experience</p>
+                      <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                        {parsedCv.experience.slice(0, 4).map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
+                {defaultCv && !parsedCv ? (
+                  <p className="text-xs text-muted-foreground">Loading parsed CV...</p>
+                ) : null}
+              </div>
             </div>
 
             <div className="rounded-xl border bg-card p-5">
@@ -328,19 +460,4 @@ export default function DashboardPage() {
       </div>
     </AuthenticatedDashboardLayout>
   )
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message
-
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message?: unknown }).message === "string"
-  ) {
-    return (error as { message: string }).message
-  }
-
-  return fallback
 }

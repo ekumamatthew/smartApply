@@ -4,11 +4,13 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { execFile } from 'node:child_process';
+import { randomUUID, createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { extname } from 'node:path';
 import { promisify } from 'node:util';
-import OpenAI from 'openai';
+import { OpenRouter } from '@openrouter/sdk';
 import { parseOfficeAsync } from 'officeparser';
+import { dbPool } from '../lib/db';
 import { GenerateEmailDto } from './dto/generate-email.dto';
 
 const execFileAsync = promisify(execFile);
@@ -27,19 +29,52 @@ export type ParsedCvSections = {
   certifications: string[];
 };
 
+export type EmailThreadSummary = {
+  id: string;
+  jobDescription: string;
+  jobDescriptionHash: string;
+  emailCount: number;
+  latestEmailSubject: string | null;
+  latestAt: string;
+};
+
+export type EmailHistoryItem = {
+  id: string;
+  promptContext: string | null;
+  tone: string | null;
+  subject: string;
+  body: string;
+  keyHighlights: string[];
+  createdAt: string;
+};
+
+type DbEmailHistoryRow = {
+  id: string;
+  promptContext: string | null;
+  tone: string | null;
+  subject: string;
+  body: string;
+  keyHighlights: string[] | null;
+  createdAt: string | Date;
+};
+
+type DbThreadRow = { id: string };
+
 @Injectable()
 export class EmailService {
-  private readonly openai: OpenAI;
+  private readonly openrouter: OpenRouter;
   private readonly model: string;
 
   constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is missing in backend/api/.env');
+    const openRouterApiKey = this.getEnv('OPENROUTER_API_KEY');
+    if (!openRouterApiKey) {
+      throw new Error('OPENROUTER_API_KEY is missing in backend/api/.env');
     }
 
-    this.openai = new OpenAI({ apiKey });
-    this.model = process.env.OPENAI_MODEL || 'gpt-5-mini';
+    this.openrouter = new OpenRouter({ apiKey: openRouterApiKey });
+    this.model =
+      this.getEnv('OPENROUTER_MODEL') ||
+      'nvidia/nemotron-3-super-120b-a12b:free';
   }
 
   async extractCvText(filePath: string, originalName: string): Promise<string> {
@@ -108,47 +143,14 @@ Requirements:
 - keyHighlights should be an array of 3-5 short bullet strings.
 `;
 
-    const response = await this.openai.responses.create({
-      model: this.model,
-      input: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-      text: {
-        format: {
-          type: 'json_schema',
-          name: 'job_application_email',
-          strict: true,
-          schema: {
-            type: 'object',
-            properties: {
-              subject: { type: 'string' },
-              body: { type: 'string' },
-              keyHighlights: {
-                type: 'array',
-                items: { type: 'string' },
-              },
-            },
-            required: ['subject', 'body', 'keyHighlights'],
-            additionalProperties: false,
-          },
-        },
-      },
-    });
+    const output = await this.generateJson(systemPrompt, userPrompt);
 
-    const output = response.output_text;
-    if (!output) {
-      throw new InternalServerErrorException('Model returned empty output');
-    }
-
-    const parsed = JSON.parse(output) as GeneratedEmail;
-    if (!parsed.subject || !parsed.body || !Array.isArray(parsed.keyHighlights)) {
+    const parsed = this.parseJsonFromText(output) as GeneratedEmail;
+    if (
+      !parsed.subject ||
+      !parsed.body ||
+      !Array.isArray(parsed.keyHighlights)
+    ) {
       throw new InternalServerErrorException('Invalid model output shape');
     }
 
@@ -158,17 +160,9 @@ Requirements:
   async parseCvSections(cvText: string): Promise<ParsedCvSections> {
     const cvExcerpt = this.truncate(cvText, 14000);
 
-    const response = await this.openai.responses.create({
-      model: this.model,
-      input: [
-        {
-          role: 'system',
-          content:
-            'You are a technical recruiter assistant. Extract CV content into concise structured sections without inventing facts.',
-        },
-        {
-          role: 'user',
-          content: `Extract the CV below as strict JSON with keys: summary, skills, experience, education, certifications.
+    const output = await this.generateJson(
+      'You are a technical recruiter assistant. Extract CV content into concise structured sections without inventing facts.',
+      `Extract the CV below as strict JSON with keys: summary, skills, experience, education, certifications.
 
 Rules:
 - summary: 2-3 sentences, max 400 chars.
@@ -181,41 +175,9 @@ Rules:
 CV:
 ${cvExcerpt}
 `,
-        },
-      ],
-      text: {
-        format: {
-          type: 'json_schema',
-          name: 'parsed_cv_sections',
-          strict: true,
-          schema: {
-            type: 'object',
-            properties: {
-              summary: { type: 'string' },
-              skills: { type: 'array', items: { type: 'string' } },
-              experience: { type: 'array', items: { type: 'string' } },
-              education: { type: 'array', items: { type: 'string' } },
-              certifications: { type: 'array', items: { type: 'string' } },
-            },
-            required: [
-              'summary',
-              'skills',
-              'experience',
-              'education',
-              'certifications',
-            ],
-            additionalProperties: false,
-          },
-        },
-      },
-    });
+    );
 
-    const output = response.output_text;
-    if (!output) {
-      throw new InternalServerErrorException('Model returned empty CV parse output');
-    }
-
-    const parsed = JSON.parse(output) as ParsedCvSections;
+    const parsed = this.parseJsonFromText(output) as ParsedCvSections;
     if (
       !parsed.summary ||
       !Array.isArray(parsed.skills) ||
@@ -227,6 +189,175 @@ ${cvExcerpt}
     }
 
     return parsed;
+  }
+
+  async listThreads(userId: string): Promise<EmailThreadSummary[]> {
+    const result = await dbPool.query(
+      `
+      SELECT
+        t.id,
+        t."jobDescription",
+        t."jobDescriptionHash",
+        COUNT(m.id)::int AS "emailCount",
+        (
+          SELECT m2.subject
+          FROM email_messages m2
+          WHERE m2."threadId" = t.id
+          ORDER BY m2."createdAt" DESC
+          LIMIT 1
+        ) AS "latestEmailSubject",
+        COALESCE(MAX(m."createdAt"), t."updatedAt") AS "latestAt"
+      FROM email_threads t
+      LEFT JOIN email_messages m ON m."threadId" = t.id
+      WHERE t."userId" = $1
+      GROUP BY t.id, t."jobDescription", t."jobDescriptionHash", t."updatedAt"
+      ORDER BY "latestAt" DESC
+      `,
+      [userId],
+    );
+
+    return result.rows as EmailThreadSummary[];
+  }
+
+  async listThreadMessages(
+    userId: string,
+    threadId: string,
+  ): Promise<EmailHistoryItem[]> {
+    const result = await dbPool.query(
+      `
+      SELECT
+        m.id,
+        m."promptContext",
+        m.tone,
+        m.subject,
+        m.body,
+        m."keyHighlights",
+        m."createdAt"
+      FROM email_messages m
+      INNER JOIN email_threads t ON t.id = m."threadId"
+      WHERE m."threadId" = $1 AND t."userId" = $2
+      ORDER BY m."createdAt" DESC
+      `,
+      [threadId, userId],
+    );
+
+    return (result.rows as DbEmailHistoryRow[]).map((row) => ({
+      id: row.id,
+      promptContext: row.promptContext,
+      tone: row.tone,
+      subject: row.subject,
+      body: row.body,
+      keyHighlights: Array.isArray(row.keyHighlights) ? row.keyHighlights : [],
+      createdAt: String(row.createdAt),
+    }));
+  }
+
+  async getStoredCvForGeneration(userId: string, cvId?: string) {
+    const result = cvId
+      ? await dbPool.query(
+          `
+          SELECT id, "fileName", "storedPath", "isDefault"
+          FROM cv_documents
+          WHERE "userId" = $1 AND id = $2
+          LIMIT 1
+          `,
+          [userId, cvId],
+        )
+      : await dbPool.query(
+          `
+          SELECT id, "fileName", "storedPath", "isDefault"
+          FROM cv_documents
+          WHERE "userId" = $1
+          ORDER BY "isDefault" DESC, "createdAt" DESC
+          LIMIT 1
+          `,
+          [userId],
+        );
+
+    const row = result.rows[0] as
+      | { id: string; fileName: string; storedPath: string; isDefault: boolean }
+      | undefined;
+
+    if (!row) {
+      throw new BadRequestException(
+        cvId
+          ? 'Selected CV was not found for this user'
+          : 'No CV available. Upload a CV first or select one explicitly.',
+      );
+    }
+
+    try {
+      await fs.access(row.storedPath);
+    } catch {
+      throw new BadRequestException(
+        `Stored CV file is missing on disk: ${row.fileName}`,
+      );
+    }
+
+    return {
+      cvId: row.id,
+      filePath: row.storedPath,
+      originalName: row.fileName,
+      isDefault: row.isDefault,
+    };
+  }
+
+  async saveGeneratedEmail(
+    userId: string,
+    dto: GenerateEmailDto,
+    generated: GeneratedEmail,
+  ) {
+    const normalizedJobDescription = this.normalizeJobDescription(
+      dto.jobDescription,
+    );
+    const hash = createHash('sha256')
+      .update(normalizedJobDescription)
+      .digest('hex');
+
+    const existingThread = await dbPool.query(
+      'SELECT id FROM email_threads WHERE "userId" = $1 AND "jobDescriptionHash" = $2 LIMIT 1',
+      [userId, hash],
+    );
+
+    const existingThreadRow =
+      (existingThread.rows[0] as DbThreadRow | undefined) ?? undefined;
+    const threadId = existingThreadRow?.id || randomUUID();
+
+    if (existingThread.rowCount === 0) {
+      await dbPool.query(
+        `
+        INSERT INTO email_threads (
+          id, "userId", "jobDescription", "jobDescriptionHash", "createdAt", "updatedAt"
+        ) VALUES ($1, $2, $3, $4, NOW(), NOW())
+        `,
+        [threadId, userId, dto.jobDescription, hash],
+      );
+    } else {
+      await dbPool.query(
+        'UPDATE email_threads SET "updatedAt" = NOW() WHERE id = $1',
+        [threadId],
+      );
+    }
+
+    const messageId = randomUUID();
+    await dbPool.query(
+      `
+      INSERT INTO email_messages (
+        id, "threadId", "promptContext", tone, subject, body, "keyHighlights", "createdAt"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      `,
+      [
+        messageId,
+        threadId,
+        dto.additionalContext || null,
+        dto.tone || null,
+        generated.subject,
+        generated.body,
+        generated.keyHighlights,
+      ],
+    );
+
+    return { threadId, messageId };
   }
 
   private async extractLegacyDoc(filePath: string): Promise<string> {
@@ -267,6 +398,105 @@ ${cvExcerpt}
   }
 
   private normalizeText(value: string): string {
-    return value.replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
+    return value
+      .replace(/\r/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  private async generateJson(
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<string> {
+    try {
+      const responseUnknown: unknown = await this.openrouter.chat.send({
+        chatGenerationParams: {
+          model: this.model,
+          messages: [
+            {
+              role: 'system',
+              content: `${systemPrompt}\nReturn valid JSON only. No markdown code fences.`,
+            },
+            {
+              role: 'user',
+              content: userPrompt,
+            },
+          ],
+        },
+      });
+
+      const response = responseUnknown as {
+        choices?: Array<{ message?: { content?: unknown } }>;
+      };
+
+      const content = response.choices?.[0]?.message?.content;
+      if (typeof content === 'string' && content.trim()) {
+        return content;
+      }
+
+      if (Array.isArray(content)) {
+        const joined = content
+          .map((part: unknown) => {
+            if (
+              typeof part === 'object' &&
+              part !== null &&
+              'type' in part &&
+              'text' in part &&
+              (part as { type?: unknown }).type === 'text'
+            ) {
+              return String((part as { text: unknown }).text);
+            }
+            return '';
+          })
+          .join('');
+
+        if (joined.trim()) {
+          return joined;
+        }
+      }
+
+      throw new InternalServerErrorException(
+        'OpenRouter returned empty content',
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `OpenRouter request failed: ${this.errorToMessage(error)}`,
+      );
+    }
+  }
+
+  private parseJsonFromText(value: string): unknown {
+    try {
+      return JSON.parse(value);
+    } catch {
+      const cleaned = value
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```$/i, '')
+        .trim();
+      return JSON.parse(cleaned);
+    }
+  }
+
+  private errorToMessage(error: unknown): string {
+    if (!error) return 'none';
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    return 'unknown error';
+  }
+
+  private getEnv(key: string): string | null {
+    const value = process.env[key];
+    if (!value) return null;
+    const cleaned = value.trim().replace(/^['"]|['"]$/g, '');
+    return cleaned || null;
+  }
+
+  private normalizeJobDescription(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s]/g, '');
   }
 }

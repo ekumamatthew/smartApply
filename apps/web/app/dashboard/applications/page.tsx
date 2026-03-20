@@ -1,316 +1,286 @@
 "use client"
 
-import { Button } from "@workspace/ui/components/button"
-import { DashboardLayout } from "@workspace/ui/components/dashboard-layout"
-import { Input } from "@workspace/ui/components/input"
-import { JobCard } from "@workspace/ui/components/job-card"
-import { Label } from "@workspace/ui/components/label"
+import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import {
-  Briefcase,
-  Calendar,
-  ChevronDown,
-  Download,
-  Filter,
-  MapPin,
-  Plus,
-  Search,
-  Upload,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
+  type EmailHistoryItem,
+  type EmailThreadSummary,
+  fetchEmailThreads,
+  fetchThreadMessages,
+} from "@/src/lib/dashboard-api"
+import {
+  applicationsSearchAtom,
+  selectedThreadIdAtom,
+} from "@/src/state/applications"
+import { useQuery } from "@tanstack/react-query"
+import { useAtom } from "jotai"
+import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { Briefcase, Clock, Mail, Search } from "lucide-react"
 import * as React from "react"
 
-// Mock data for demonstration
-const mockJobs = [
-  {
-    id: "1",
-    title: "Senior Frontend Developer",
-    company: "TechCorp Inc.",
-    location: "San Francisco, CA",
-    status: "applied" as const,
-    dateAdded: "2 days ago",
-    url: "https://example.com/job1",
-    description:
-      "Looking for an experienced frontend developer with React and TypeScript expertise.",
-  },
-  {
-    id: "2",
-    title: "Full Stack Engineer",
-    company: "StartupXYZ",
-    location: "Remote",
-    status: "interviewing" as const,
-    dateAdded: "1 week ago",
-    url: "https://example.com/job2",
-    description:
-      "Join our growing team as a full stack engineer working with modern web technologies.",
-  },
-  {
-    id: "3",
-    title: "Product Designer",
-    company: "Design Studio",
-    location: "New York, NY",
-    status: "offered" as const,
-    dateAdded: "3 weeks ago",
-    url: "https://example.com/job3",
-    description:
-      "Creative product designer needed for innovative design studio.",
-  },
-  {
-    id: "4",
-    title: "DevOps Engineer",
-    company: "CloudTech",
-    location: "Austin, TX",
-    status: "saved" as const,
-    dateAdded: "1 month ago",
-    url: "https://example.com/job4",
-    description:
-      "Experienced DevOps engineer to help scale our cloud infrastructure.",
-  },
-  {
-    id: "5",
-    title: "Mobile Developer",
-    company: "AppWorks",
-    location: "Seattle, WA",
-    status: "rejected" as const,
-    dateAdded: "2 months ago",
-    url: "https://example.com/job5",
-    description: "iOS and Android developer with React Native experience.",
-  },
-]
+function formatDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString()
+}
+
+function previewText(text: string, max = 160) {
+  const compact = text.replace(/\s+/g, " ").trim()
+  if (compact.length <= max) return compact
+  return `${compact.slice(0, max)}...`
+}
+
+function ThreadListItem({
+  thread,
+  isSelected,
+  onSelect,
+}: {
+  thread: EmailThreadSummary
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-lg border p-4 text-left transition ${
+        isSelected
+          ? "border-primary bg-primary/5"
+          : "border-border hover:border-primary/40"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{previewText(thread.jobDescription, 90)}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {thread.latestEmailSubject || "No subject"}
+          </p>
+        </div>
+        <div className="rounded-md bg-muted px-2 py-1 text-xs font-medium">
+          {thread.emailCount} {thread.emailCount === 1 ? "email" : "emails"}
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+        <Clock className="h-3 w-3" />
+        Updated {formatDate(thread.latestAt)}
+      </div>
+    </button>
+  )
+}
+
+function MessageCard({ item }: { item: EmailHistoryItem }) {
+  return (
+    <div className="space-y-3 rounded-lg border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium">{item.subject}</p>
+        <p className="text-xs text-muted-foreground">{formatDate(item.createdAt)}</p>
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        Tone: <span className="font-medium text-foreground">{item.tone || "default"}</span>
+      </div>
+
+      {item.promptContext ? (
+        <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+          Prompt context: {previewText(item.promptContext, 220)}
+        </div>
+      ) : null}
+
+      <div className="rounded-md border bg-background p-3 text-sm whitespace-pre-wrap">
+        {item.body}
+      </div>
+
+      {item.keyHighlights.length > 0 ? (
+        <div>
+          <p className="mb-1 text-sm font-medium">Key highlights</p>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {item.keyHighlights.map((point) => (
+              <li key={`${item.id}-${point}`}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 export default function ApplicationsPage() {
-  const router = useRouter()
-  const [searchQuery, setSearchQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState("all")
-  const [sortBy, setSortBy] = React.useState("dateAdded")
-  const [showFilters, setShowFilters] = React.useState(false)
+  const [search, setSearch] = useAtom(applicationsSearchAtom)
+  const [selectedThreadId, setSelectedThreadId] = useAtom(selectedThreadIdAtom)
 
-  const filteredJobs = mockJobs.filter((job) => {
-    const matchesSearch =
-      job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.location.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === "all" || job.status === statusFilter
-    return matchesSearch && matchesStatus
+  const threadsQuery = useQuery({
+    queryKey: ["email-threads"],
+    queryFn: fetchEmailThreads,
   })
 
-  const handleViewDetails = (jobId: string) => {
-    // Navigate to job details page
-    router.push(`/dashboard/applications/details?id=${jobId}`)
-  }
+  const threads = threadsQuery.data || []
 
-  const handleUpdateStatus = (jobId: string) => {
-    console.log("Update status for job:", jobId)
-  }
+  const filteredThreads = React.useMemo(() => {
+    const value = search.trim().toLowerCase()
+    if (!value) return threads
 
-  const handleFollowUp = (jobId: string) => {
-    console.log("Follow up for job:", jobId)
-  }
+    return threads.filter((thread) => {
+      return (
+        thread.jobDescription.toLowerCase().includes(value) ||
+        (thread.latestEmailSubject || "").toLowerCase().includes(value)
+      )
+    })
+  }, [search, threads])
 
-  const handleAddJob = () => {
-    console.log("Add new job")
-  }
+  React.useEffect(() => {
+    if (filteredThreads.length === 0) {
+      setSelectedThreadId(null)
+      return
+    }
+
+    const selectedStillVisible = filteredThreads.some(
+      (thread) => thread.id === selectedThreadId
+    )
+
+    if (!selectedStillVisible) {
+      setSelectedThreadId(filteredThreads[0]?.id ?? null)
+    }
+  }, [filteredThreads, selectedThreadId, setSelectedThreadId])
+
+  const selectedThread = filteredThreads.find((thread) => thread.id === selectedThreadId)
+
+  const messagesQuery = useQuery({
+    queryKey: ["email-thread-messages", selectedThreadId],
+    queryFn: () => fetchThreadMessages(selectedThreadId as string),
+    enabled: Boolean(selectedThreadId),
+  })
+
+  const messages = messagesQuery.data || []
 
   return (
-    <DashboardLayout>
+    <AuthenticatedDashboardLayout>
       <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Applications</h1>
-            <p className="text-muted-foreground">
-              Manage your job applications and track their progress
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Applications</h1>
+          <p className="text-muted-foreground">
+            Grouped history of generated application emails by job description.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Job Threads</p>
+            <p className="text-2xl font-bold">{threads.length}</p>
+          </div>
+          <div className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Generated Emails</p>
+            <p className="text-2xl font-bold">
+              {threads.reduce((sum, thread) => sum + thread.emailCount, 0)}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm">
-              <Upload className="mr-2 h-4 w-4" />
-              Import
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-            <Button onClick={handleAddJob}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Job
-            </Button>
+          <div className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Selected Thread</p>
+            <p className="text-sm font-medium">
+              {selectedThread ? `${selectedThread.emailCount} saved versions` : "None"}
+            </p>
           </div>
         </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col space-y-4 lg:flex-row lg:space-y-0 lg:space-x-4">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search jobs by title, company, or location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center"
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              Filters
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-
-            {/* Status Filter */}
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
-              >
-                <option value="all">All Status</option>
-                <option value="saved">Saved</option>
-                <option value="applied">Applied</option>
-                <option value="interviewing">Interviewing</option>
-                <option value="offered">Offered</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-
-            {/* Sort */}
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
-              >
-                <option value="dateAdded">Date Added</option>
-                <option value="title">Job Title</option>
-                <option value="company">Company</option>
-                <option value="status">Status</option>
-              </select>
-            </div>
-          </div>
+        <div className="relative">
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by job description or subject..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="pl-10"
+          />
         </div>
 
-        {/* Advanced Filters (Collapsible) */}
-        {showFilters && (
-          <div className="space-y-4 rounded-lg border bg-card p-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Date Range</Label>
-                <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option>Last 7 days</option>
-                  <option>Last 30 days</option>
-                  <option>Last 3 months</option>
-                  <option>All time</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Location</Label>
-                <Input placeholder="Filter by location..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Job Type</Label>
-                <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option>All types</option>
-                  <option>Full-time</option>
-                  <option>Part-time</option>
-                  <option>Contract</option>
-                  <option>Remote</option>
-                </select>
-              </div>
+        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+          <div className="space-y-3 rounded-xl border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Job Threads</h2>
+              <span className="text-xs text-muted-foreground">
+                {filteredThreads.length} shown
+              </span>
             </div>
-          </div>
-        )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                <Briefcase className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Jobs</p>
-                <p className="text-2xl font-bold">{mockJobs.length}</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                <Calendar className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Applied</p>
-                <p className="text-2xl font-bold">
-                  {mockJobs.filter((j) => j.status === "applied").length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                <MapPin className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Interviewing</p>
-                <p className="text-2xl font-bold">
-                  {mockJobs.filter((j) => j.status === "interviewing").length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-100">
-                <Plus className="h-5 w-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Offers</p>
-                <p className="text-2xl font-bold">
-                  {mockJobs.filter((j) => j.status === "offered").length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+            {threadsQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading threads...</p>
+            ) : null}
 
-        {/* Job Cards Grid */}
-        <div className="space-y-4">
-          {filteredJobs.length === 0 ? (
-            <div className="py-12 text-center">
-              <Briefcase className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No jobs found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search or filters to find what you&apos;re
-                looking for.
-              </p>
-              <Button className="mt-4" onClick={handleAddJob}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Your First Job
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
-              {filteredJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  onViewDetails={() => handleViewDetails(job.id)}
-                  onUpdateStatus={() => handleUpdateStatus(job.id)}
-                  onFollowUp={() => handleFollowUp(job.id)}
+            {threadsQuery.isError ? (
+              <p className="text-sm text-red-600">Failed to load threads.</p>
+            ) : null}
+
+            {!threadsQuery.isLoading && filteredThreads.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                <Briefcase className="mx-auto mb-2 h-5 w-5" />
+                No saved email history yet.
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              {filteredThreads.map((thread) => (
+                <ThreadListItem
+                  key={thread.id}
+                  thread={thread}
+                  isSelected={selectedThreadId === thread.id}
+                  onSelect={() => setSelectedThreadId(thread.id)}
                 />
               ))}
             </div>
-          )}
+          </div>
+
+          <div className="rounded-xl border bg-card p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Email History</h2>
+              {selectedThread ? (
+                <span className="text-xs text-muted-foreground">
+                  {selectedThread.emailCount} versions
+                </span>
+              ) : null}
+            </div>
+
+            {!selectedThread ? (
+              <p className="text-sm text-muted-foreground">
+                Select a job thread to view previous generated emails.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-md bg-muted p-3 text-sm">
+                  <p className="mb-1 font-medium">Job Description</p>
+                  <p className="text-muted-foreground">
+                    {previewText(selectedThread.jobDescription, 500)}
+                  </p>
+                </div>
+
+                {messagesQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading history...</p>
+                ) : null}
+
+                {messagesQuery.isError ? (
+                  <p className="text-sm text-red-600">Failed to load email history.</p>
+                ) : null}
+
+                {!messagesQuery.isLoading && messages.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No saved messages in this thread yet.</p>
+                ) : null}
+
+                <div className="space-y-3">
+                  {messages.map((item) => (
+                    <MessageCard key={item.id} item={item} />
+                  ))}
+                </div>
+
+                {selectedThread ? (
+                  <Button variant="outline" asChild>
+                    <a href="/dashboard">
+                      <Mail className="mr-2 h-4 w-4" />
+                      Generate New Version For This Job
+                    </a>
+                  </Button>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </DashboardLayout>
+    </AuthenticatedDashboardLayout>
   )
 }

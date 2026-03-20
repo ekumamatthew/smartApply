@@ -5,7 +5,8 @@ import {
 } from "@/src/state/email-generator"
 
 export type GenerateEmailPayload = {
-  cv: File
+  cv?: File
+  cvId?: string
   jobDescription: string
   recipientEmail: string
   recipientName?: string
@@ -35,7 +36,14 @@ export async function generateApplicationEmail(
 ): Promise<GeneratedEmail> {
   const formData = new FormData()
 
-  formData.append("cv", payload.cv)
+  if (payload.cv) {
+    formData.append("cv", payload.cv)
+  } else if (payload.cvId) {
+    formData.append("cvId", payload.cvId)
+  } else {
+    throw new Error("Provide either cv file or cvId")
+  }
+
   formData.append("jobDescription", payload.jobDescription)
   formData.append("recipientEmail", payload.recipientEmail)
 
