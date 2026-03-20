@@ -3,11 +3,14 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthGuard } from './common/guards/auth.guard';
+import { EmailController } from './email/email.controller';
+import { EmailService } from './email/email.service';
 
 @Module({
-  controllers: [AppController],
+  controllers: [AppController, EmailController],
   providers: [
     AppService,
+    EmailService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

@@ -87,7 +87,7 @@ export default function CVManagementPage() {
       const newCV: CV = {
         id: Date.now().toString(),
         name: file.name || "Untitled CV",
-        uploadDate: new Date().toISOString().split("T")[0],
+        uploadDate: new Date().toISOString().split("T")[0] ?? "",
         size: `${(file.size / 1024).toFixed(1)} KB`,
         isDefault: cvs.length === 0,
       }

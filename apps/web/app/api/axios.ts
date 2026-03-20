@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from "axios"
 // import { headers } from "next/headers";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://api.example.com"
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
 const AUTH_API_BASE_URL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL
 
 
