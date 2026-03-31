@@ -172,9 +172,12 @@ export default function DashboardPage() {
     <AuthenticatedDashboardLayout>
       <div className="space-y-6 p-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI Email Generator</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            AI Email Generator
+          </h1>
           <p className="text-muted-foreground">
-            Select your default CV, paste job details, and generate a tailored application email.
+            Select your default CV, paste job details, and generate a tailored
+            application email.
           </p>
         </div>
 
@@ -184,8 +187,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-5 rounded-xl border bg-card p-5">
+        <div className="grid h-[90vh] gap-6 lg:grid-cols-2">
+          <div className="h-auto space-y-5 rounded-xl border bg-card p-5">
             <div className="space-y-2 rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <Label className="font-medium">Default CV</Label>
@@ -220,7 +223,9 @@ export default function DashboardPage() {
               />
 
               <p className="text-sm text-muted-foreground">
-                {defaultCv ? defaultCv.fileName : "No CV yet. Click upload icon."}
+                {defaultCv
+                  ? defaultCv.fileName
+                  : "No CV yet. Click upload icon."}
               </p>
 
               <Button
@@ -241,16 +246,22 @@ export default function DashboardPage() {
                       className="flex items-center justify-between rounded border bg-background p-2"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{item.fileName}</p>
+                        <p className="truncate text-sm font-medium">
+                          {item.fileName}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {item.isDefault ? "Current default" : "Set as default"}
+                          {item.isDefault
+                            ? "Current default"
+                            : "Set as default"}
                         </p>
                       </div>
                       <Button
                         type="button"
                         size="sm"
                         variant={item.isDefault ? "default" : "outline"}
-                        disabled={setDefaultMutation.isPending || item.isDefault}
+                        disabled={
+                          setDefaultMutation.isPending || item.isDefault
+                        }
                         onClick={() => setDefaultMutation.mutate(item.id)}
                       >
                         {item.isDefault ? (
@@ -283,7 +294,9 @@ export default function DashboardPage() {
               <textarea
                 id="jobDescription"
                 value={form.jobDescription}
-                onChange={(e) => handleFieldChange("jobDescription", e.target.value)}
+                onChange={(e) =>
+                  handleFieldChange("jobDescription", e.target.value)
+                }
                 placeholder="Paste job description here..."
                 className="min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
@@ -296,7 +309,9 @@ export default function DashboardPage() {
                   id="recipientEmail"
                   type="email"
                   value={form.recipientEmail}
-                  onChange={(e) => handleFieldChange("recipientEmail", e.target.value)}
+                  onChange={(e) =>
+                    handleFieldChange("recipientEmail", e.target.value)
+                  }
                   placeholder="hr@company.com"
                 />
               </div>
@@ -305,7 +320,9 @@ export default function DashboardPage() {
                 <Input
                   id="recipientName"
                   value={form.recipientName}
-                  onChange={(e) => handleFieldChange("recipientName", e.target.value)}
+                  onChange={(e) =>
+                    handleFieldChange("recipientName", e.target.value)
+                  }
                   placeholder="Hiring Manager"
                 />
               </div>
@@ -314,7 +331,9 @@ export default function DashboardPage() {
                 <Input
                   id="applicantName"
                   value={form.applicantName}
-                  onChange={(e) => handleFieldChange("applicantName", e.target.value)}
+                  onChange={(e) =>
+                    handleFieldChange("applicantName", e.target.value)
+                  }
                   placeholder="John Doe"
                 />
               </div>
@@ -324,7 +343,10 @@ export default function DashboardPage() {
                   id="tone"
                   value={form.tone}
                   onChange={(e) =>
-                    handleFieldChange("tone", e.target.value as typeof form.tone)
+                    handleFieldChange(
+                      "tone",
+                      e.target.value as typeof form.tone
+                    )
                   }
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
@@ -337,11 +359,15 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="additionalContext">Additional Context (optional)</Label>
+              <Label htmlFor="additionalContext">
+                Additional Context (optional)
+              </Label>
               <textarea
                 id="additionalContext"
                 value={form.additionalContext}
-                onChange={(e) => handleFieldChange("additionalContext", e.target.value)}
+                onChange={(e) =>
+                  handleFieldChange("additionalContext", e.target.value)
+                }
                 placeholder="Any specific achievements or details you want emphasized"
                 className="min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
@@ -367,7 +393,7 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          <div className="space-y-5">
+          <div className="no-scrollbar w-full space-y-5 lg:overflow-y-auto">
             <div className="rounded-xl border bg-card p-5">
               <h2 className="mb-3 text-lg font-semibold">CV Status</h2>
               <div className="space-y-2 text-sm">
@@ -383,12 +409,15 @@ export default function DashboardPage() {
                     </p>
                     <div>
                       <p className="font-medium">Summary</p>
-                      <p className="text-muted-foreground">{parsedCv.summary}</p>
+                      <p className="text-muted-foreground">
+                        {parsedCv.summary}
+                      </p>
                     </div>
                     <div>
                       <p className="font-medium">Top Skills</p>
                       <p className="text-muted-foreground">
-                        {parsedCv.skills.slice(0, 10).join(", ") || "None detected"}
+                        {parsedCv.skills.slice(0, 10).join(", ") ||
+                          "None detected"}
                       </p>
                     </div>
                     <div>
@@ -402,7 +431,9 @@ export default function DashboardPage() {
                   </div>
                 ) : null}
                 {defaultCv && !parsedCv ? (
-                  <p className="text-xs text-muted-foreground">Loading parsed CV...</p>
+                  <p className="text-xs text-muted-foreground">
+                    Loading parsed CV...
+                  </p>
                 ) : null}
               </div>
             </div>

@@ -176,7 +176,9 @@ export default function ApplicationsPage() {
           <div className="rounded-lg border bg-card p-4">
             <p className="text-sm text-muted-foreground">Selected Thread</p>
             <p className="text-sm font-medium">
-              {selectedThread ? `${selectedThread.emailCount} saved versions` : "None"}
+              {selectedThread
+                ? `${selectedThread.emailCount} saved versions`
+                : "None"}
             </p>
           </div>
         </div>
@@ -191,8 +193,8 @@ export default function ApplicationsPage() {
           />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="space-y-3 rounded-xl border bg-card p-4">
+        <div className="grid h-[90vh] gap-6 lg:grid-cols-[360px_1fr]">
+          <div className="no-scrollbar h-full space-y-3 overflow-y-auto rounded-xl border bg-card p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Job Threads</h2>
               <span className="text-xs text-muted-foreground">
@@ -201,7 +203,9 @@ export default function ApplicationsPage() {
             </div>
 
             {threadsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading threads...</p>
+              <p className="text-sm text-muted-foreground">
+                Loading threads...
+              </p>
             ) : null}
 
             {threadsQuery.isError ? (
@@ -227,7 +231,7 @@ export default function ApplicationsPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border bg-card p-4">
+          <div className="no-scrollbar h-full overflow-y-auto rounded-xl border bg-card p-4">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Email History</h2>
               {selectedThread ? (
@@ -251,15 +255,21 @@ export default function ApplicationsPage() {
                 </div>
 
                 {messagesQuery.isLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading history...</p>
+                  <p className="text-sm text-muted-foreground">
+                    Loading history...
+                  </p>
                 ) : null}
 
                 {messagesQuery.isError ? (
-                  <p className="text-sm text-red-600">Failed to load email history.</p>
+                  <p className="text-sm text-red-600">
+                    Failed to load email history.
+                  </p>
                 ) : null}
 
                 {!messagesQuery.isLoading && messages.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No saved messages in this thread yet.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No saved messages in this thread yet.
+                  </p>
                 ) : null}
 
                 <div className="space-y-3">

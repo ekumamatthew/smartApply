@@ -1,21 +1,18 @@
 "use client"
 
-import { DashboardLayout } from "@workspace/ui/components/dashboard-layout"
-import { AuthenticatedSidebar } from "./AuthenticatedSidebar"
 import { cn } from "@workspace/ui/lib/utils"
 import * as React from "react"
+import { AuthenticatedSidebar } from "./AuthenticatedSidebar"
 
 interface AuthenticatedDashboardLayoutProps {
   children: React.ReactNode
   className?: string
 }
-
 export const AuthenticatedDashboardLayout = React.forwardRef<
-  HTMLDivElement, 
+  HTMLDivElement,
   AuthenticatedDashboardLayoutProps
 >(({ children, className, ...props }, ref) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
-
   return (
     <div
       ref={ref}
@@ -26,13 +23,13 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
-      <main className={cn(
-        "flex-1 transition-all duration-300",
-        isSidebarCollapsed ? "sm:ml-30 md:ml-0" : "sm:ml-64 md:ml-0"
-      )}>
-        <div className="min-h-full w-full">
-          {children}
-        </div>
+      <main
+        className={cn(
+          "no-scrollbar h-screen flex-1 overflow-y-auto transition-all duration-300",
+          isSidebarCollapsed ? "sm:ml-30 md:ml-0" : "sm:ml-64 md:ml-0"
+        )}
+      >
+        <div className="min-h-full w-full">{children}</div>
       </main>
     </div>
   )
