@@ -7,7 +7,8 @@ export const authClient = createAuthClient({
   fetchOptions: {
     credentials: "include",
   },
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3001",
+  // Use same-origin auth proxy route to avoid cross-site cookie/session issues.
+  baseURL: "",
   basePath: "/api/auth",
   plugins: [emailOTPClient(), nextCookies()],
 })
