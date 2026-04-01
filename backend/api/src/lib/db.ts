@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { Pool } from 'pg';
 
 const rawDatabaseUrl = process.env.DATABASE_URL?.trim();
