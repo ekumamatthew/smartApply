@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
