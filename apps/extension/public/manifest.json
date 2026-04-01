@@ -12,8 +12,7 @@
     "https://*.glassdoor.com/*",
     "https://*.monster.com/*",
     "https://*.ziprecruiter.com/*",
-    "http://localhost:3000/*",
-    "https://smartapply.app/*"
+    "https://smart-apply-web.vercel.app/*"
   ],
 
   "background": {
@@ -62,18 +61,17 @@
         "https://*.glassdoor.com/*",
         "https://*.monster.com/*",
         "https://*.ziprecruiter.com/*",
-        "http://localhost:3000/*",
-        "https://smartapply.app/*"
+        "https://smart-apply-web.vercel.app/*"
       ]
     }
   ],
 
   "externally_connectable": {
-    "matches": ["http://localhost:3000/*", "https://smartapply.app/*"]
+    "matches": ["https://smart-apply-web.vercel.app/*"]
   },
 
   "author": "SmartApply Team",
-  "homepage_url": "https://smartapply.app",
+  "homepage_url": "https://smart-apply-web.vercel.app",
 
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"

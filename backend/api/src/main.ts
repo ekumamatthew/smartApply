@@ -5,6 +5,7 @@ import { type Request, type Response, type NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth';
+import { getAllowedOrigins, isAllowedOrigin } from './lib/origins';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,8 +18,18 @@ async function bootstrap() {
   });
 
   // Enable CORS
+  const allowedOrigins = getAllowedOrigins();
   app.enableCors({
-    origin: [process.env.FRONTEND_URL || 'http://localhost:3000'],
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (isAllowedOrigin(origin, allowedOrigins)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

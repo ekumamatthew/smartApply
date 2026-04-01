@@ -33,6 +33,8 @@ Set these in `backend/api/.env`:
 # Existing
 DATABASE_URL=postgresql://...
 FRONTEND_URL=http://localhost:3000
+FRONTEND_URLS=https://smart-apply-web.vercel.app,https://smart-apply-<preview>.vercel.app
+EXTENSION_ORIGIN=chrome-extension://<extension-id>
 BETTER_AUTH_URL=http://localhost:3001
 OPENROUTER_API_KEY=...
 OPENROUTER_MODEL=nvidia/nemotron-3-super-120b-a12b:free

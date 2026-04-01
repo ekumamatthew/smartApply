@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { dbPool } from './db';
+import { getAllowedOrigins } from './origins';
 
 const socialProviders = {
   ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -32,7 +33,7 @@ export const auth = betterAuth({
   database: dbPool,
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
   basePath: '/api/auth',
-  trustedOrigins: [process.env.FRONTEND_URL || 'http://localhost:3000'],
+  trustedOrigins: getAllowedOrigins(),
   emailAndPassword: { enabled: true },
   socialProviders,
 });
