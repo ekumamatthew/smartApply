@@ -2,10 +2,7 @@ import axios, { AxiosInstance } from "axios"
 // import { headers } from "next/headers";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-const AUTH_API_BASE_URL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL
-
-
+  "/api/proxy"
 // Authenticated Axios instance
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -27,7 +24,7 @@ api.interceptors.response.use(
 export default api
 
 export const apiWithAuth = axios.create({
-  baseURL: AUTH_API_BASE_URL,
+  baseURL: "",
   withCredentials: true,
 })
 
