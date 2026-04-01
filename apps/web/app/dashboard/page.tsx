@@ -1,13 +1,24 @@
 "use client"
 
 import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
+import { CV_TEMPLATE_DEFINITIONS } from "@/src/components/cv-builder/templates"
 import {
+  fallbackStructuredCv,
+  mapStructuredCvToViewModel,
+} from "@/src/components/cv-builder/types"
+import {
+  fetchCvOptimizationHistory,
   fetchCvParsedPreview,
-  type CvRecord,
-  type ParsedCvSections,
   fetchCvs,
+  fetchCvTemplates,
+  optimizeCv,
   setDefaultCv,
   uploadCv,
+  type CvOptimizationHistoryItem,
+  type CvRecord,
+  type CvTemplate,
+  type ParsedCvSections,
+  type StructuredCvData,
 } from "@/src/lib/dashboard-api"
 import { generateApplicationEmail } from "@/src/lib/email-generator-api"
 import {
@@ -16,11 +27,21 @@ import {
   generatorErrorAtom,
 } from "@/src/state/email-generator"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useAtom } from "jotai"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { CheckCircle2, Copy, Loader2, Mail, Sparkles, Upload } from "lucide-react"
+import { useAtom } from "jotai"
+import {
+  CheckCircle2,
+  Copy,
+  Download,
+  Eye,
+  LayoutTemplate,
+  Loader2,
+  Mail,
+  Sparkles,
+  Upload,
+} from "lucide-react"
 import * as React from "react"
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -49,16 +70,183 @@ export default function DashboardPage() {
   const [parsedCv, setParsedCv] = React.useState<ParsedCvSections | null>(null)
   const [parsedCvName, setParsedCvName] = React.useState<string>("")
   const [parsedFromCache, setParsedFromCache] = React.useState<boolean>(false)
+  const [optimizeAlongside, setOptimizeAlongside] = React.useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState("")
+  const [extraCvRequirements, setExtraCvRequirements] = React.useState("")
+  const [optimizeNote, setOptimizeNote] = React.useState("")
+  const [showCvPreview, setShowCvPreview] = React.useState(false)
+  const [previewTemplateId, setPreviewTemplateId] = React.useState("clean")
+  const [isExportingPdf, setIsExportingPdf] = React.useState(false)
+  const [showTemplatePicker, setShowTemplatePicker] = React.useState(false)
+  const exportRef = React.useRef<HTMLDivElement | null>(null)
+  const [showProgressModal, setShowProgressModal] = React.useState(false)
+  const [progressValue, setProgressValue] = React.useState(1)
+  const [progressActivity, setProgressActivity] = React.useState("Preparing request")
+  const progressCapRef = React.useRef(90)
+  const progressTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
   const cvsQuery = useQuery({
     queryKey: ["cv-list"],
     queryFn: fetchCvs,
   })
+  const templatesQuery = useQuery({
+    queryKey: ["cv-templates"],
+    queryFn: fetchCvTemplates,
+    enabled: optimizeAlongside,
+  })
 
   const cvs = cvsQuery.data || []
+  const templates = templatesQuery.data || []
   const defaultCv = React.useMemo(
     () => cvs.find((item) => item.isDefault) ?? cvs[0] ?? null,
     [cvs]
+  )
+
+  React.useEffect(() => {
+    if (!optimizeAlongside) return
+    if (!selectedTemplateId && templates.length > 0) {
+      setSelectedTemplateId(templates[0]?.id || "")
+    }
+  }, [optimizeAlongside, selectedTemplateId, templates])
+
+  const optimizationHistoryQuery = useQuery({
+    queryKey: ["cv-optimization-history", defaultCv?.id],
+    queryFn: () => fetchCvOptimizationHistory(defaultCv!.id),
+    enabled: Boolean(defaultCv?.id),
+  })
+  const latestOptimization = optimizationHistoryQuery.data?.[0] as
+    | CvOptimizationHistoryItem
+    | undefined
+
+  const selectedPreviewTemplate = React.useMemo(
+    () =>
+      CV_TEMPLATE_DEFINITIONS.find((tpl) => tpl.id === previewTemplateId) ||
+      CV_TEMPLATE_DEFINITIONS[0]!,
+    [previewTemplateId]
+  )
+
+  const previewStructuredCv = React.useMemo<StructuredCvData | null>(() => {
+    if (latestOptimization?.structuredCvJson)
+      return latestOptimization.structuredCvJson
+    if (latestOptimization?.optimizedCvText) {
+      return fallbackStructuredCv(latestOptimization.optimizedCvText)
+    }
+    return null
+  }, [latestOptimization])
+
+  const previewTemplateData = React.useMemo(() => {
+    if (!previewStructuredCv) return null
+    return mapStructuredCvToViewModel(previewStructuredCv)
+  }, [previewStructuredCv])
+
+  const exportPreviewPdf = async () => {
+    if (!previewTemplateData || !exportRef.current) {
+      setError("No preview data available to export")
+      return
+    }
+
+    try {
+      setIsExportingPdf(true)
+      const [{ jsPDF }, { toCanvas }] = await Promise.all([
+        import("jspdf"),
+        import("html-to-image"),
+      ])
+      const fullCanvas = await toCanvas(exportRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      })
+
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pageWidth = 210
+      const pageHeight = 297
+      const margin = 6
+      const contentWidthMm = pageWidth - margin * 2
+      const contentHeightMm = pageHeight - margin * 2
+      const pageSliceHeightPx = Math.floor(
+        fullCanvas.width * (contentHeightMm / contentWidthMm)
+      )
+
+      let offsetY = 0
+      let pageIndex = 0
+      while (offsetY < fullCanvas.height) {
+        const sliceHeightPx = Math.min(
+          pageSliceHeightPx,
+          fullCanvas.height - offsetY
+        )
+        const sliceCanvas = document.createElement("canvas")
+        sliceCanvas.width = fullCanvas.width
+        sliceCanvas.height = sliceHeightPx
+        const ctx = sliceCanvas.getContext("2d")
+        if (!ctx) throw new Error("Failed to prepare PDF canvas context")
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height)
+        ctx.drawImage(
+          fullCanvas,
+          0,
+          offsetY,
+          fullCanvas.width,
+          sliceHeightPx,
+          0,
+          0,
+          sliceCanvas.width,
+          sliceCanvas.height
+        )
+
+        const sliceDataUrl = sliceCanvas.toDataURL("image/png")
+        const renderHeightMm =
+          (sliceHeightPx * contentWidthMm) / fullCanvas.width
+        if (pageIndex > 0) pdf.addPage()
+        pdf.addImage(
+          sliceDataUrl,
+          "PNG",
+          margin,
+          margin,
+          contentWidthMm,
+          renderHeightMm
+        )
+        offsetY += sliceHeightPx
+        pageIndex += 1
+      }
+
+      const slug = (previewTemplateData.personal.name || "client")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+      pdf.save(`${slug || "client"}-${selectedPreviewTemplate.id}-cv.pdf`)
+    } catch (exportError: unknown) {
+      setError(getErrorMessage(exportError, "Failed to export CV PDF"))
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
+
+  const stopProgressModal = React.useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    setShowProgressModal(false)
+  }, [])
+
+  const startProgressModal = React.useCallback(
+    (activity: string, cap: number) => {
+      setShowProgressModal(true)
+      setProgressValue(1)
+      setProgressActivity(activity)
+      progressCapRef.current = cap
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+      }
+      progressTimerRef.current = setInterval(() => {
+        setProgressValue((prev) => {
+          if (prev >= progressCapRef.current) return prev
+          const step = prev < 35 ? 2 : prev < 70 ? 1.5 : 1
+          return Math.min(progressCapRef.current, Math.round(prev + step))
+        })
+      }, 180)
+    },
+    []
   )
 
   const uploadCvMutation = useMutation({
@@ -95,11 +283,8 @@ export default function DashboardPage() {
   })
 
   const loadDefaultCvParsedMutation = useMutation({
-    mutationFn: async ({
-      cvId,
-    }: {
-      cvId: string
-    }) => fetchCvParsedPreview(cvId, false),
+    mutationFn: async ({ cvId }: { cvId: string }) =>
+      fetchCvParsedPreview(cvId, false),
     onSuccess: (data) => {
       setParsedCv(data.parsed)
       setParsedCvName(data.fileName)
@@ -118,14 +303,18 @@ export default function DashboardPage() {
       }
 
       if (form.jobDescription.trim().length < 30) {
-        throw new Error("Please provide a fuller job description (at least 30 characters)")
+        throw new Error(
+          "Please provide a fuller job description (at least 30 characters)"
+        )
       }
 
       if (!form.recipientEmail.trim()) {
         throw new Error("Please provide recipient email")
       }
 
-      return generateApplicationEmail({
+      startProgressModal("generating your tailored email", optimizeAlongside ? 76 : 92)
+
+      const email = await generateApplicationEmail({
         cvId: defaultCv.id,
         jobDescription: form.jobDescription,
         recipientEmail: form.recipientEmail,
@@ -136,13 +325,55 @@ export default function DashboardPage() {
           .join("\n"),
         tone: form.tone,
       })
+
+      if (optimizeAlongside) {
+        setProgressActivity("optimizing your CV")
+        progressCapRef.current = 95
+        setProgressValue((prev) => Math.max(prev, 72))
+
+        const keywords = extraCvRequirements
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+
+        const optimized = await optimizeCv({
+          cvId: defaultCv.id,
+          jobDescription: form.jobDescription,
+          templateId: selectedTemplateId || undefined,
+          clientName: form.applicantName || undefined,
+          keywords,
+        })
+
+        const templateName =
+          (optimized.template as CvTemplate | undefined)?.name ||
+          "selected template"
+        setOptimizeNote(
+          `CV optimized with ${templateName}. You can review it in CV Management history.`
+        )
+      } else {
+        setOptimizeNote("")
+      }
+
+      setProgressActivity("finalizing results")
+      setProgressValue((prev) => Math.max(prev, 98))
+
+      return email
     },
     onSuccess: (data) => {
       setGeneratedEmail(data)
       setError("")
+      setProgressValue(100)
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+        progressTimerRef.current = null
+      }
+      setTimeout(() => {
+        setShowProgressModal(false)
+      }, 420)
     },
     onError: (err: unknown) => {
       setError(getErrorMessage(err, "Failed to generate email"))
+      stopProgressModal()
     },
   })
 
@@ -167,6 +398,14 @@ export default function DashboardPage() {
     loadDefaultCvParsedMutation.mutate({ cvId: defaultCv.id })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultCv?.id])
+
+  React.useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <AuthenticatedDashboardLayout>
@@ -373,6 +612,53 @@ export default function DashboardPage() {
               />
             </div>
 
+            <div className="rounded-md border p-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={optimizeAlongside}
+                  onChange={(e) => setOptimizeAlongside(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Optimize CV alongside email (optional)
+              </label>
+
+              {optimizeAlongside ? (
+                <div className="mt-3 space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="cvTemplate">CV Template</Label>
+                    <select
+                      id="cvTemplate"
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {templates.length === 0 ? (
+                        <option value="">Loading templates...</option>
+                      ) : (
+                        templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="extraCvRequirements">
+                      Extra CV requirements (optional)
+                    </Label>
+                    <Input
+                      id="extraCvRequirements"
+                      value={extraCvRequirements}
+                      onChange={(e) => setExtraCvRequirements(e.target.value)}
+                      placeholder="Leadership, React, product analytics"
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <Button
               type="button"
               className="w-full"
@@ -435,22 +721,42 @@ export default function DashboardPage() {
                     Loading parsed CV...
                   </p>
                 ) : null}
+                <div className="pt-2">
+                  {!latestOptimization ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Generate email with “Optimize CV alongside email” enabled
+                      to preview.
+                    </p>
+                  ) : null}
+                </div>
               </div>
             </div>
 
             <div className="rounded-xl border bg-card p-5">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Generated Email</h2>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyEmail}
-                  disabled={!generatedEmail}
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyEmail}
+                    disabled={!generatedEmail}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCvPreview(true)}
+                    disabled={!latestOptimization}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview & Download CV
+                  </Button>
+                </div>
               </div>
 
               {!generatedEmail ? (
@@ -483,11 +789,132 @@ export default function DashboardPage() {
                     <Mail className="mr-1 h-3 w-3" />
                     Ready to send to {form.recipientEmail || "recipient"}
                   </div>
+                  {optimizeNote ? (
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700">
+                      {optimizeNote}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
           </div>
         </div>
+
+        {showCvPreview ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-xl border bg-background p-5 shadow-2xl">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-lg font-semibold">CV Preview</h3>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowCvPreview(false)}
+                >
+                  Close
+                </Button>
+              </div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowTemplatePicker((prev) => !prev)}
+                >
+                  <LayoutTemplate className="mr-2 h-4 w-4" />
+                  Template
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={exportPreviewPdf}
+                  disabled={isExportingPdf}
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      Download PDF
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {showTemplatePicker ? (
+                <div className="mb-3 grid gap-2 md:grid-cols-3">
+                  {CV_TEMPLATE_DEFINITIONS.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => setPreviewTemplateId(template.id)}
+                      className={`rounded-md border p-2 text-left text-sm ${
+                        previewTemplateId === template.id
+                          ? "border-primary bg-primary/5"
+                          : "hover:border-primary/40"
+                      }`}
+                    >
+                      <p className="font-medium">{template.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {template.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="overflow-auto rounded-md border bg-slate-100 p-3">
+                <div className="origin-top-left scale-[0.75] transform transition-all duration-300 ease-out md:scale-[0.82] lg:scale-[0.9]">
+                  {previewTemplateData ? (
+                    <selectedPreviewTemplate.Component
+                      data={previewTemplateData}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No optimized CV data available yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="pointer-events-none fixed top-0 -left-[20000px] opacity-0">
+                <div ref={exportRef}>
+                  {previewTemplateData ? (
+                    <selectedPreviewTemplate.Component
+                      data={previewTemplateData}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {showProgressModal ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
+            <div className="w-[92%] max-w-md rounded-2xl border bg-background/95 p-6 shadow-2xl">
+              <p className="text-sm font-medium text-muted-foreground">SmartApply Progress</p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Stay patient as we {progressActivity}...
+              </h3>
+
+              <div className="mt-5 rounded-full bg-muted">
+                <div
+                  className="h-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-300"
+                  style={{ width: `${Math.max(1, Math.min(100, progressValue))}%` }}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Processing</span>
+                <span className="font-semibold">{Math.max(1, Math.min(100, progressValue))}%</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </AuthenticatedDashboardLayout>
   )
