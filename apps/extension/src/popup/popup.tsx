@@ -11,11 +11,13 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
+import { EXT_WEB_APP_URL } from "../config/env"
+import type { ExtensionRequest, ExtensionResponse, JobData } from "../types/messages"
 import "./globals.css"
 import "./test-styles.css"
 
 function Popup() {
-  const [currentJob, setCurrentJob] = useState<any>(null)
+  const [currentJob, setCurrentJob] = useState<JobData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState("Ready")
 
@@ -27,16 +29,17 @@ function Popup() {
   const loadCurrentJob = async () => {
     try {
       const response = await chrome.runtime.sendMessage({ action: "getJob" })
-      if (response.success && response.job) {
-        setCurrentJob(response.job)
-        updateJobFields(response.job)
+      const typedResponse = response as ExtensionResponse
+      if (typedResponse.success && typedResponse.job) {
+        setCurrentJob(typedResponse.job)
+        updateJobFields(typedResponse.job)
       }
     } catch (error) {
       console.error("Error loading current job:", error)
     }
   }
 
-  const updateJobFields = (job: any) => {
+  const updateJobFields = (job: JobData) => {
     const titleInput = document.getElementById("job-title") as HTMLInputElement
     const companyInput = document.getElementById("company") as HTMLInputElement
 
@@ -57,9 +60,9 @@ function Popup() {
 
       if (tab.id) {
         // Send message to content script to extract job
-        const response = await chrome.tabs.sendMessage(tab.id, {
+        const response = (await chrome.tabs.sendMessage(tab.id, {
           action: "detectJob",
-        })
+        } satisfies ExtensionRequest)) as ExtensionResponse
 
         if (response.success && response.job) {
           setCurrentJob(response.job)
@@ -96,7 +99,7 @@ function Popup() {
 
       // Open dashboard
       chrome.tabs.create({
-        url: "http://localhost:3000/dashboard?generateEmail=true",
+        url: `${EXT_WEB_APP_URL}/dashboard?generateEmail=true`,
       })
 
       setStatus("Opening dashboard...")
@@ -111,7 +114,7 @@ function Popup() {
 
   const handleSettings = () => {
     chrome.tabs.create({
-      url: "http://localhost:3000/dashboard/settings",
+      url: `${EXT_WEB_APP_URL}/dashboard/settings`,
     })
   }
 
@@ -486,7 +489,7 @@ function Popup() {
           }}
         >
           <a
-            href="http://localhost:3000/dashboard"
+            href={`${EXT_WEB_APP_URL}/dashboard`}
             target="_blank"
             className="flex items-center justify-center gap-1 text-sm text-blue-600 transition-colors hover:text-blue-800"
             style={{

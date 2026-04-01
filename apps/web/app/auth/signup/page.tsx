@@ -1,13 +1,14 @@
 "use client"
 
+import { AuthenticatedHeader } from "@/src/components/AuthenticatedHeader"
 import { Button } from "@workspace/ui/components/button"
-import { Header } from "@workspace/ui/components/header"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Chrome, Eye } from "lucide-react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { authClient, useSession } from "../../../src/auth/web-auth-client"
+
 export default function SignUpPage() {
   const { data: session } = useSession()
   const [email, setEmail] = useState("")
@@ -16,6 +17,7 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,13 +36,18 @@ export default function SignUpPage() {
     setIsLoading(true)
 
     try {
-      await authClient.signUp.email({
+      const result = await authClient.signUp.email({
         email,
         password,
         name,
+        callbackURL: "/dashboard",
       })
-      // Redirect to dashboard on successful sign-up
-      window.location.href = "/dashboard"
+
+      if (result.error) {
+        setError(result.error.message || "Registration failed")
+      } else {
+        router.push("/dashboard")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
     } finally {
@@ -50,36 +57,23 @@ export default function SignUpPage() {
 
   const handleSocialSignUp = async (provider: "github" | "google") => {
     try {
-      await authClient.signIn.social({ provider })
+      await authClient.signIn.social({
+        provider,
+        callbackURL: "/dashboard",
+      })
     } catch (err) {
       setError(`${provider} sign up failed`)
     }
   }
 
   if (session) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h2 className="mb-4 text-2xl font-bold text-gray-900">
-            Already Signed In
-          </h2>
-          <p className="mb-6 text-gray-600">
-            Welcome back, {session.user.name || session.user.email}!
-          </p>
-          <Link
-            href="/dashboard"
-            className="inline-block rounded-lg bg-blue-500 px-6 py-2 text-white hover:bg-blue-600"
-          >
-            Go to Dashboard
-          </Link>
-        </div>
-      </div>
-    )
+    router.push("/dashboard")
+    return null
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <AuthenticatedHeader />
       <div className="flex items-center justify-center px-4 py-20">
         <div className="w-full max-w-md space-y-8">
           {/* Header */}

@@ -1,19 +1,6 @@
 import 'dotenv/config';
 import { betterAuth } from 'better-auth';
-import { Pool } from 'pg';
-
-const rawDatabaseUrl = process.env.DATABASE_URL?.trim();
-const databaseUrl = rawDatabaseUrl?.replace(/^['"]|['"]$/g, '');
-
-if (!databaseUrl) {
-  throw new Error(
-    'DATABASE_URL is missing. Set it in backend/api/.env to your Neon Postgres URL.',
-  );
-}
-
-const pool = new Pool({
-  connectionString: databaseUrl,
-});
+import { dbPool } from './db';
 
 const socialProviders = {
   ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -43,7 +30,7 @@ const socialProviders = {
 };
 
 export const auth = betterAuth({
-  database: pool,
+  database: dbPool,
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
   basePath: '/api/auth',
   trustedOrigins: [process.env.FRONTEND_URL || 'http://localhost:3000'],

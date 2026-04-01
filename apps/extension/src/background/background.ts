@@ -1,4 +1,7 @@
 // Background script for SmartApply extension
+import { EXT_WEB_APP_URL } from "../config/env"
+import type { ExtensionRequest, ExtensionResponse } from "../types/messages"
+
 console.log("SmartApply background script loaded")
 
 // Extension state
@@ -10,7 +13,12 @@ let extensionState = {
 }
 
 // Listen for messages from content script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(
+  (
+    request: ExtensionRequest,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: ExtensionResponse) => void
+  ) => {
   switch (request.action) {
     case "extractJob":
       handleJobExtraction(request.data, sendResponse)
@@ -34,7 +42,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 })
 
 // Handle job extraction
-async function handleJobExtraction(jobData, sendResponse) {
+async function handleJobExtraction(
+  jobData: Record<string, unknown>,
+  sendResponse: (response: ExtensionResponse) => void
+) {
   try {
     extensionState.currentJob = jobData
 
@@ -57,7 +68,10 @@ async function handleJobExtraction(jobData, sendResponse) {
 }
 
 // Handle saving job
-async function handleSaveJob(jobData, sendResponse) {
+async function handleSaveJob(
+  jobData: Record<string, unknown>,
+  sendResponse: (response: ExtensionResponse) => void
+) {
   try {
     // Get saved jobs from storage
     const result = await chrome.storage.local.get(["savedJobs"])
@@ -83,7 +97,7 @@ async function handleSaveJob(jobData, sendResponse) {
 // Send job to backend
 async function sendJobToBackend(jobData) {
   try {
-    const response = await fetch("http://localhost:3000/api/jobs/extract", {
+    const response = await fetch(`${EXT_WEB_APP_URL}/api/jobs/extract`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -104,7 +118,10 @@ async function sendJobToBackend(jobData) {
 }
 
 // Handle detection status
-async function handleDetectionStatus(analysis, sendResponse) {
+async function handleDetectionStatus(
+  analysis: Record<string, unknown>,
+  sendResponse: (response: ExtensionResponse) => void
+) {
   try {
     extensionState.detectionStatus = analysis
 
@@ -122,7 +139,10 @@ async function handleDetectionStatus(analysis, sendResponse) {
 }
 
 // Handle opening dashboard
-async function handleOpenDashboard(jobData, sendResponse) {
+async function handleOpenDashboard(
+  jobData: Record<string, unknown>,
+  sendResponse: (response: ExtensionResponse) => void
+) {
   try {
     // Store job data for dashboard
     await chrome.storage.local.set({
@@ -132,7 +152,7 @@ async function handleOpenDashboard(jobData, sendResponse) {
 
     // Open dashboard
     chrome.tabs.create({
-      url: "http://localhost:3000/dashboard",
+      url: `${EXT_WEB_APP_URL}/dashboard`,
     })
 
     sendResponse({ success: true })
@@ -153,7 +173,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 
     // Open welcome page
     chrome.tabs.create({
-      url: "http://localhost:3000/welcome",
+      url: `${EXT_WEB_APP_URL}/welcome`,
     })
   }
 })
@@ -174,7 +194,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
     if (isJobSite) {
       // Notify content script to extract job data
-      chrome.tabs.sendMessage(tabId, { action: "detectJob" })
+      chrome.tabs.sendMessage(tabId, { action: "detectJob" } satisfies ExtensionRequest)
     }
   }
 })

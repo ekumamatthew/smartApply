@@ -1,4 +1,6 @@
 // AI-powered job detection for any website
+import type { ExtensionRequest } from "../types/messages"
+
 console.log("SmartApply AI job detector loaded")
 
 // Job-related keywords and patterns
@@ -709,21 +711,21 @@ function extractJobData() {
     chrome.runtime.sendMessage({
       action: "extractJob",
       data: jobData,
-    })
+    } satisfies ExtensionRequest)
 
     // Update popup if open
     chrome.runtime.sendMessage({
       action: "updatePopup",
       data: jobData,
-    })
+    } satisfies ExtensionRequest)
   }
 
   return jobData
 }
 
 // Extract data using CSS selectors (for known platforms)
-function extractFromPatterns(patterns) {
-  const data = {}
+function extractFromPatterns(patterns: Record<string, string[]>) {
+  const data: Record<string, string | null> = {}
 
   Object.keys(patterns).forEach((key) => {
     const selectors = patterns[key]
@@ -744,7 +746,7 @@ function extractFromPatterns(patterns) {
 }
 
 // Listen for messages from background script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === "detectJob") {
     const jobData = extractJobData()
     sendResponse({ success: true, job: jobData })
@@ -815,13 +817,13 @@ function addFloatingButton() {
       chrome.runtime.sendMessage({
         action: "openDashboard",
         data: jobData,
-      })
+      } satisfies ExtensionRequest)
     } else {
       // Show detection status
       chrome.runtime.sendMessage({
         action: "showDetectionStatus",
         data: analysis,
-      })
+      } satisfies ExtensionRequest)
     }
   })
 
@@ -845,7 +847,4 @@ observer.addEventListener("callback", () => {
   setTimeout(addFloatingButton, 2000)
 })
 
-// Export for testing
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = { AIJobDetector, aiDetector }
-}
+export {}

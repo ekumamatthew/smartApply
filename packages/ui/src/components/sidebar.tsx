@@ -17,10 +17,11 @@ interface SidebarProps {
   className?: string
   isCollapsed?: boolean
   onToggle?: () => void
+  onLogout?: () => void
 }
 
 const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
-  ({ className, isCollapsed = false, onToggle, ...props }, ref) => {
+  ({ className, isCollapsed = false, onToggle, onLogout, ...props }, ref) => {
     const [isMobileOpen, setIsMobileOpen] = React.useState(false)
 
     const menuItems = [
@@ -167,6 +168,7 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   "mt-4 w-full justify-start",
                   isCollapsed && "px-2"
                 )}
+                onClick={onLogout}
               >
                 <LogOut className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
                 {!isCollapsed && <span>Logout</span>}

@@ -5,29 +5,37 @@ import { Header } from "@workspace/ui/components/header"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Chrome, Eye } from "lucide-react"
-import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { authClient, useSession } from "../../../src/auth/web-auth-client"
+
 export default function SignInPage() {
   const { data: session } = useSession()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
 
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log(email)
     e.preventDefault()
     setError("")
     setIsLoading(true)
 
     try {
-      await authClient.signIn.email({
+      const result = await authClient.signIn.email({
         email,
         password,
+        callbackURL: callbackUrl,
       })
-      // Redirect to dashboard on successful sign-in
-      window.location.href = "/dashboard"
+
+      if (result.error) {
+        setError(result.error.message || "Login failed")
+      } else {
+        router.push(callbackUrl)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
     } finally {
@@ -37,31 +45,18 @@ export default function SignInPage() {
 
   const handleSocialSignIn = async (provider: "github" | "google") => {
     try {
-      await authClient.signIn.social({ provider })
+      await authClient.signIn.social({
+        provider,
+        callbackURL: callbackUrl,
+      })
     } catch (err) {
       setError(`${provider} sign in failed`)
     }
   }
 
   if (session) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h2 className="mb-4 text-2xl font-bold text-gray-900">
-            Already Signed In
-          </h2>
-          <p className="mb-6 text-gray-600">
-            Welcome back, {session.user.name || session.user.email}!
-          </p>
-          <Link
-            href="/dashboard"
-            className="inline-block rounded-lg bg-blue-500 px-6 py-2 text-white hover:bg-blue-600"
-          >
-            Go to Dashboard
-          </Link>
-        </div>
-      </div>
-    )
+    router.push("/dashboard")
+    return null
   }
 
   return (
