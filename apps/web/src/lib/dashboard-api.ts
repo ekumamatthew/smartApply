@@ -46,6 +46,76 @@ export type CvParsedPreview = {
   parsedAt: string | null
 }
 
+export type CvTemplate = {
+  id: string
+  slug: string
+  name: string
+  description: string
+  standard: "ats" | "modern" | "executive" | "academic" | "general"
+  preview: string
+  sortOrder: number
+}
+
+export type CvOptimizationHistoryItem = {
+  id: string
+  cvId: string
+  standard: string
+  templateId: string
+  templateName: string
+  jobDescription: string
+  requestedKeywords: string[]
+  extractedKeywords: string[]
+  missingKeywords: string[]
+  structuredCvJson: StructuredCvData | null
+  optimizedCvText: string
+  atsScore: number
+  recommendations: string[]
+  createdAt: string
+}
+
+export type StructuredCvData = {
+  personal: {
+    name: string
+    email: string
+    phone: string
+    location: string
+    links: string[]
+  }
+  targetRole: string
+  summary: string
+  skills: string[]
+  experience: Array<{
+    title: string
+    company: string
+    period: string
+    highlights: string[]
+  }>
+  education: Array<{
+    institution: string
+    degree: string
+    period: string
+    details: string[]
+  }>
+  certifications: string[]
+  projects: Array<{
+    name: string
+    description: string
+    technologies: string[]
+  }>
+}
+
+export type OptimizeCvPayload = {
+  cvId?: string
+  jobDescription: string
+  standard?: "ats" | "modern" | "executive" | "academic" | "general"
+  templateId?: string
+  keywords?: string[]
+  clientName?: string
+  clientEmail?: string
+  clientPhone?: string
+  clientLocation?: string
+}
+
 export async function fetchEmailThreads(): Promise<EmailThreadSummary[]> {
   const response = await api.get("/api/email/threads")
   return response.data.threads || []
@@ -94,4 +164,36 @@ export async function fetchCvParsedPreview(
     params: { refresh: refresh ? "true" : undefined },
   })
   return response.data
+}
+
+export async function fetchCvTemplates(): Promise<CvTemplate[]> {
+  const response = await api.get("/api/cv/templates")
+  return response.data.templates || []
+}
+
+export async function optimizeCv(
+  payload: OptimizeCvPayload
+): Promise<{
+  optimizationId: string
+  cvId: string
+  cvFileName: string
+  standard: string
+  template: CvTemplate
+  result: {
+    optimizedCvText: string
+    extractedKeywords: string[]
+    missingKeywords: string[]
+    atsScore: number
+    recommendations: string[]
+  }
+}> {
+  const response = await api.post("/api/cv/optimize", payload)
+  return response.data
+}
+
+export async function fetchCvOptimizationHistory(
+  cvId: string
+): Promise<CvOptimizationHistoryItem[]> {
+  const response = await api.get(`/api/cv/${cvId}/optimizations`)
+  return response.data.history || []
 }

@@ -1,11 +1,20 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { randomUUID } from 'node:crypto';
+import { type Request, type Response, type NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const requestId = req.header('x-request-id') || randomUUID();
+    (req as Request & { requestId?: string }).requestId = requestId;
+    res.setHeader('x-request-id', requestId);
+    next();
+  });
 
   // Enable CORS
   app.enableCors({

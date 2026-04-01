@@ -1,8 +1,10 @@
 // Frontend Auth Client for BetterAuth Integration
+import { EXT_API_BASE_URL } from "../config/env"
+
 export class AuthClient {
   private baseUrl: string
 
-  constructor(baseUrl: string = "http://localhost:3001") {
+  constructor(baseUrl: string = EXT_API_BASE_URL) {
     this.baseUrl = baseUrl
   }
 

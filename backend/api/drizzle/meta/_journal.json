@@ -29,6 +29,27 @@
       "when": 1774108800000,
       "tag": "0003_cv_parsed_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774353600000,
+      "tag": "0004_ai_usage_daily",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774886400000,
+      "tag": "0005_cv_optimization_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774972800000,
+      "tag": "0006_cv_structured_json",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   integer,
   jsonb,
   pgTable,
@@ -100,6 +101,58 @@ export const cvDocument = pgTable('cv_documents', {
   isDefault: boolean('isDefault').notNull().default(false),
   parsedCvJson: jsonb('parsedCvJson'),
   parsedCvUpdatedAt: timestamp('parsedCvUpdatedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- CV Templates -----
+export const cvTemplate = pgTable('cv_templates', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  standard: text('standard').notNull(),
+  preview: text('preview').notNull(),
+  sortOrder: integer('sortOrder').notNull().default(0),
+  isActive: boolean('isActive').notNull().default(true),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- CV Optimization History -----
+export const cvOptimization = pgTable('cv_optimizations', {
+  id: text('id').primaryKey(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  cvId: text('cvId')
+    .notNull()
+    .references(() => cvDocument.id, { onDelete: 'cascade' }),
+  templateId: text('templateId')
+    .notNull()
+    .references(() => cvTemplate.id, { onDelete: 'restrict' }),
+  standard: text('standard').notNull(),
+  jobDescription: text('jobDescription').notNull(),
+  jobDescriptionHash: text('jobDescriptionHash').notNull(),
+  requestedKeywords: text('requestedKeywords').array().notNull().default([]),
+  extractedKeywords: text('extractedKeywords').array().notNull().default([]),
+  structuredCvJson: jsonb('structuredCvJson'),
+  optimizedCvText: text('optimizedCvText').notNull(),
+  atsScore: integer('atsScore').notNull().default(0),
+  recommendations: text('recommendations').array().notNull().default([]),
+  missingKeywords: text('missingKeywords').array().notNull().default([]),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- AI Usage Quotas -----
+export const aiUsageDaily = pgTable('ai_usage_daily', {
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  date: date('date').notNull(),
+  parseCvCount: integer('parseCvCount').notNull().default(0),
+  generateEmailCount: integer('generateEmailCount').notNull().default(0),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });

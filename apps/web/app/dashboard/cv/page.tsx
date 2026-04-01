@@ -2,14 +2,24 @@
 
 import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import {
-  type CvRecord,
   deleteCv,
   fetchCvs,
+  fetchCvOptimizationHistory,
+  type StructuredCvData,
+  fetchCvTemplates,
+  type CvRecord,
+  optimizeCv,
   setDefaultCv,
   uploadCv,
 } from "@/src/lib/dashboard-api"
+import { CV_TEMPLATE_DEFINITIONS } from "@/src/components/cv-builder/templates"
+import {
+  fallbackStructuredCv,
+  mapStructuredCvToViewModel,
+} from "@/src/components/cv-builder/types"
 import {
   cvManagementErrorAtom,
+  cvOptimizationFormAtom,
   selectedCvIdAtom,
 } from "@/src/state/cv-management"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -18,8 +28,11 @@ import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
   CheckCircle,
+  Copy,
   FileText,
+  LayoutTemplate,
   Loader2,
+  Sparkles,
   Star,
   Trash2,
   Upload,
@@ -29,7 +42,7 @@ import * as React from "react"
 function formatDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString()
+  return date.toLocaleString()
 }
 
 function formatFileSize(bytes: number) {
@@ -142,13 +155,24 @@ export default function CVManagementPage() {
   const [selectedCvId, setSelectedCvId] = useAtom(selectedCvIdAtom)
   const [error, setError] = useAtom(cvManagementErrorAtom)
   const [uploadingFile, setUploadingFile] = React.useState<File | null>(null)
+  const [optimizationForm, setOptimizationForm] = useAtom(cvOptimizationFormAtom)
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState<string>("clean")
+  const [showTemplatePicker, setShowTemplatePicker] = React.useState(false)
+  const [isExportingPdf, setIsExportingPdf] = React.useState(false)
+  const previewRef = React.useRef<HTMLDivElement | null>(null)
+  const exportRef = React.useRef<HTMLDivElement | null>(null)
 
   const cvsQuery = useQuery({
     queryKey: ["cv-list"],
     queryFn: fetchCvs,
   })
+  const templatesQuery = useQuery({
+    queryKey: ["cv-templates"],
+    queryFn: fetchCvTemplates,
+  })
 
   const cvs = cvsQuery.data || []
+  const templates = templatesQuery.data || []
 
   React.useEffect(() => {
     if (cvs.length === 0) {
@@ -164,10 +188,62 @@ export default function CVManagementPage() {
     }
   }, [cvs, selectedCvId, setSelectedCvId])
 
+  React.useEffect(() => {
+    if (templates.length === 0 || optimizationForm.templateId) {
+      return
+    }
+
+    const bestTemplate =
+      templates.find((item) => item.standard === optimizationForm.standard) || templates[0]
+
+    if (bestTemplate) {
+      setOptimizationForm((prev) => ({ ...prev, templateId: bestTemplate.id }))
+    }
+  }, [optimizationForm.standard, optimizationForm.templateId, setOptimizationForm, templates])
+
+  const selectedCv = React.useMemo(() => {
+    if (!selectedCvId) {
+      return cvs.find((item) => item.isDefault) || null
+    }
+    return cvs.find((item) => item.id === selectedCvId) || null
+  }, [cvs, selectedCvId])
+
+  const optimizationHistoryQuery = useQuery({
+    queryKey: ["cv-optimization-history", selectedCv?.id],
+    queryFn: () => fetchCvOptimizationHistory(selectedCv!.id),
+    enabled: Boolean(selectedCv?.id),
+  })
+
+  const latestOptimization = optimizationHistoryQuery.data?.[0] || null
+  const selectedTemplate = React.useMemo(
+    () =>
+      CV_TEMPLATE_DEFINITIONS.find((tpl) => tpl.id === selectedTemplateId) ||
+      CV_TEMPLATE_DEFINITIONS[0]!,
+    [selectedTemplateId]
+  )
+
+  const structuredCv = React.useMemo<StructuredCvData | null>(() => {
+    if (latestOptimization?.structuredCvJson) {
+      return latestOptimization.structuredCvJson
+    }
+    if (latestOptimization?.optimizedCvText) {
+      return fallbackStructuredCv(latestOptimization.optimizedCvText)
+    }
+    return null
+  }, [latestOptimization])
+
+  const templateData = React.useMemo(() => {
+    if (!structuredCv) return null
+    return mapStructuredCvToViewModel(structuredCv)
+  }, [structuredCv])
+
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => uploadCv(file),
-    onSuccess: async () => {
+    onSuccess: async (uploaded) => {
       await queryClient.invalidateQueries({ queryKey: ["cv-list"] })
+      if (uploaded?.id) {
+        setSelectedCvId(uploaded.id)
+      }
       setError("")
       setUploadingFile(null)
     },
@@ -217,9 +293,146 @@ export default function CVManagementPage() {
     },
   })
 
-  const defaultCv = cvs.find((cv) => cv.isDefault)
+  const optimizeMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedCv?.id) {
+        throw new Error("Select or upload a CV first")
+      }
+      if (optimizationForm.jobDescription.trim().length < 30) {
+        throw new Error("Please add a fuller job description (at least 30 characters)")
+      }
+
+      const keywords = optimizationForm.keywordsCsv
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+
+      return optimizeCv({
+        cvId: selectedCv.id,
+        standard: optimizationForm.standard,
+        templateId: optimizationForm.templateId || undefined,
+        jobDescription: optimizationForm.jobDescription,
+        keywords,
+        clientName: optimizationForm.clientName || undefined,
+        clientEmail: optimizationForm.clientEmail || undefined,
+        clientPhone: optimizationForm.clientPhone || undefined,
+        clientLocation: optimizationForm.clientLocation || undefined,
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["cv-optimization-history", selectedCv?.id],
+      })
+      setError("")
+    },
+    onError: (mutationError: unknown) => {
+      setError(getErrorMessage(mutationError, "Failed to optimize CV"))
+    },
+  })
+
+  const exportTemplatePdf = async () => {
+    if (!templateData) {
+      setError("No CV data available to export yet")
+      return
+    }
+    if (!exportRef.current) {
+      setError("Export view is not ready yet")
+      return
+    }
+
+    try {
+      setIsExportingPdf(true)
+      setError("")
+
+      const [{ jsPDF }, { toCanvas }] = await Promise.all([
+        import("jspdf"),
+        import("html-to-image"),
+      ])
+
+      const fullCanvas = await toCanvas(exportRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      })
+
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pageWidth = 210
+      const pageHeight = 297
+      const margin = 6
+      const contentWidthMm = pageWidth - margin * 2
+      const contentHeightMm = pageHeight - margin * 2
+
+      const pageSliceHeightPx = Math.floor(
+        fullCanvas.width * (contentHeightMm / contentWidthMm)
+      )
+
+      let offsetY = 0
+      let pageIndex = 0
+
+      while (offsetY < fullCanvas.height) {
+        const sliceHeightPx = Math.min(pageSliceHeightPx, fullCanvas.height - offsetY)
+        const sliceCanvas = document.createElement("canvas")
+        sliceCanvas.width = fullCanvas.width
+        sliceCanvas.height = sliceHeightPx
+        const ctx = sliceCanvas.getContext("2d")
+
+        if (!ctx) {
+          throw new Error("Failed to prepare PDF canvas context")
+        }
+
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height)
+        ctx.drawImage(
+          fullCanvas,
+          0,
+          offsetY,
+          fullCanvas.width,
+          sliceHeightPx,
+          0,
+          0,
+          sliceCanvas.width,
+          sliceCanvas.height
+        )
+
+        const sliceDataUrl = sliceCanvas.toDataURL("image/png")
+        const renderHeightMm = (sliceHeightPx * contentWidthMm) / fullCanvas.width
+
+        if (pageIndex > 0) {
+          pdf.addPage()
+        }
+
+        pdf.addImage(
+          sliceDataUrl,
+          "PNG",
+          margin,
+          margin,
+          contentWidthMm,
+          renderHeightMm
+        )
+
+        offsetY += sliceHeightPx
+        pageIndex += 1
+      }
+
+      const slug = (templateData.personal.name || "client")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+
+      pdf.save(`${slug || "client"}-${selectedTemplate.id}-cv.pdf`)
+    } catch (exportError: unknown) {
+      setError(getErrorMessage(exportError, "Failed to export PDF"))
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
+
   const isMutating =
     uploadMutation.isPending || defaultMutation.isPending || deleteMutation.isPending
+
+  const templateOptions = templates.filter(
+    (item) => item.standard === optimizationForm.standard
+  )
 
   return (
     <AuthenticatedDashboardLayout>
@@ -227,7 +440,7 @@ export default function CVManagementPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">CV Management</h1>
           <p className="text-muted-foreground">
-            Upload multiple CVs and choose which one is your default for email generation.
+            Upload CVs, set a default, then optimize each CV for a specific job using ATS or other standards.
           </p>
         </div>
 
@@ -277,46 +490,8 @@ export default function CVManagementPage() {
         </div>
 
         <div className="rounded-xl border bg-card p-5">
-          <h2 className="text-lg font-semibold">Default CV</h2>
-          {defaultCv ? (
-            <div className="mt-3 rounded-lg border bg-muted/40 p-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-muted-foreground" />
-                <p className="font-medium">{defaultCv.fileName}</p>
-                <Star className="h-4 w-4 fill-current text-yellow-500" />
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Uploaded {formatDate(defaultCv.createdAt)} • {formatFileSize(defaultCv.sizeBytes)}
-              </p>
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-muted-foreground">No default CV selected yet.</p>
-          )}
-        </div>
-
-        <div className="rounded-xl border bg-card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">All CVs ({cvs.length})</h2>
-          </div>
-
-          {cvsQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading CVs...</p>
-          ) : null}
-
-          {cvsQuery.isError ? (
-            <p className="text-sm text-red-600">Failed to load CVs.</p>
-          ) : null}
-
-          {!cvsQuery.isLoading && cvs.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center">
-              <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-2 text-sm text-muted-foreground">
-                No CVs uploaded yet.
-              </p>
-            </div>
-          ) : null}
-
-          <div className="space-y-3">
+          <h2 className="text-lg font-semibold">All CVs ({cvs.length})</h2>
+          <div className="mt-4 space-y-3">
             {cvs.map((cv) => (
               <CvListItem
                 key={cv.id}
@@ -328,8 +503,281 @@ export default function CVManagementPage() {
                 isMutating={isMutating}
               />
             ))}
+            {!cvsQuery.isLoading && cvs.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                No CVs uploaded yet.
+              </div>
+            ) : null}
           </div>
         </div>
+
+        <div className="rounded-xl border bg-card p-5">
+          <h2 className="text-lg font-semibold">CV Optimizer</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tailor your selected CV for each job description and choose from 10 template styles.
+          </p>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Selected CV</label>
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                {selectedCv?.fileName || "No CV selected"}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">CV Standard</label>
+              <select
+                value={optimizationForm.standard}
+                onChange={(event) =>
+                  setOptimizationForm((prev) => ({
+                    ...prev,
+                    standard: event.target.value as typeof prev.standard,
+                    templateId: "",
+                  }))
+                }
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="ats">ATS Standard</option>
+                <option value="modern">Modern</option>
+                <option value="executive">Executive</option>
+                <option value="academic">Academic</option>
+                <option value="general">General</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Client Name</label>
+              <Input
+                value={optimizationForm.clientName}
+                onChange={(event) =>
+                  setOptimizationForm((prev) => ({
+                    ...prev,
+                    clientName: event.target.value,
+                  }))
+                }
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Client Email</label>
+              <Input
+                value={optimizationForm.clientEmail}
+                onChange={(event) =>
+                  setOptimizationForm((prev) => ({
+                    ...prev,
+                    clientEmail: event.target.value,
+                  }))
+                }
+                placeholder="john@email.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Client Phone</label>
+              <Input
+                value={optimizationForm.clientPhone}
+                onChange={(event) =>
+                  setOptimizationForm((prev) => ({
+                    ...prev,
+                    clientPhone: event.target.value,
+                  }))
+                }
+                placeholder="+234..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Client Location</label>
+              <Input
+                value={optimizationForm.clientLocation}
+                onChange={(event) =>
+                  setOptimizationForm((prev) => ({
+                    ...prev,
+                    clientLocation: event.target.value,
+                  }))
+                }
+                placeholder="Lagos, Nigeria"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className="text-sm font-medium">Template Design</label>
+            <select
+              value={optimizationForm.templateId}
+              onChange={(event) =>
+                setOptimizationForm((prev) => ({
+                  ...prev,
+                  templateId: event.target.value,
+                }))
+              }
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {templatesQuery.isLoading ? <option>Loading templates...</option> : null}
+              {templateOptions.length > 0
+                ? templateOptions.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))
+                : templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {templates.find((item) => item.id === optimizationForm.templateId)?.preview ||
+                "Pick a template to shape the optimized CV output style."}
+            </p>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className="text-sm font-medium">Target Job Description</label>
+            <textarea
+              value={optimizationForm.jobDescription}
+              onChange={(event) =>
+                setOptimizationForm((prev) => ({
+                  ...prev,
+                  jobDescription: event.target.value,
+                }))
+              }
+              className="min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="Paste the job description here..."
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className="text-sm font-medium">Extra Keywords (optional)</label>
+            <Input
+              value={optimizationForm.keywordsCsv}
+              onChange={(event) =>
+                setOptimizationForm((prev) => ({
+                  ...prev,
+                  keywordsCsv: event.target.value,
+                }))
+              }
+              placeholder="React, Product analytics, Stakeholder management"
+            />
+          </div>
+
+          <Button
+            type="button"
+            className="mt-5"
+            onClick={() => optimizeMutation.mutate()}
+            disabled={optimizeMutation.isPending || !selectedCv}
+          >
+            {optimizeMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Optimizing CV...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Optimize CV
+              </>
+            )}
+          </Button>
+
+          {latestOptimization ? (
+            <div className="mt-6 space-y-4 rounded-lg border bg-muted/20 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="font-medium">Template Preview</p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowTemplatePicker(true)}
+                  >
+                    <LayoutTemplate className="mr-1 h-4 w-4" />
+                    Choose Template
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      navigator.clipboard.writeText(latestOptimization.optimizedCvText)
+                    }
+                  >
+                    <Copy className="mr-1 h-4 w-4" />
+                    Copy Raw
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={exportTemplatePdf}
+                    disabled={isExportingPdf || !templateData}
+                  >
+                    {isExportingPdf ? (
+                      <>
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      "Download PDF"
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Active template: <span className="font-medium text-foreground">{selectedTemplate.label}</span>
+              </p>
+
+              <div className="overflow-auto rounded-md border bg-slate-100 p-3">
+                <div
+                  key={selectedTemplate.id}
+                  ref={previewRef}
+                  className="origin-top-left scale-[0.75] transform transition-all duration-300 ease-out md:scale-[0.82] lg:scale-[0.9]"
+                >
+                  {templateData ? <selectedTemplate.Component data={templateData} /> : null}
+                </div>
+              </div>
+
+              <div className="pointer-events-none fixed -left-[20000px] top-0 opacity-0">
+                <div ref={exportRef}>
+                  {templateData ? <selectedTemplate.Component data={templateData} /> : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {showTemplatePicker ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <div className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-xl border bg-background p-5 shadow-2xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Pick CV Template</h3>
+                <Button type="button" size="sm" variant="outline" onClick={() => setShowTemplatePicker(false)}>
+                  Close
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                {CV_TEMPLATE_DEFINITIONS.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTemplateId(template.id)
+                      setShowTemplatePicker(false)
+                    }}
+                    className={`rounded-lg border p-3 text-left transition ${
+                      selectedTemplateId === template.id
+                        ? "border-primary bg-primary/5"
+                        : "hover:border-primary/40"
+                    }`}
+                  >
+                    <p className="font-medium">{template.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{template.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </AuthenticatedDashboardLayout>
   )

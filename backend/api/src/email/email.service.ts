@@ -6,11 +6,13 @@ import {
 import { execFile } from 'node:child_process';
 import { randomUUID, createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { extname } from 'node:path';
 import { promisify } from 'node:util';
 import { OpenRouter } from '@openrouter/sdk';
 import { parseOfficeAsync } from 'officeparser';
 import { dbPool } from '../lib/db';
+import { objectStorage } from '../lib/object-storage';
 import { GenerateEmailDto } from './dto/generate-email.dto';
 
 const execFileAsync = promisify(execFile);
@@ -27,6 +29,46 @@ export type ParsedCvSections = {
   experience: string[];
   education: string[];
   certifications: string[];
+};
+
+export type OptimizedCvResult = {
+  optimizedCvText: string;
+  extractedKeywords: string[];
+  missingKeywords: string[];
+  atsScore: number;
+  recommendations: string[];
+  structuredCv: StructuredCvData;
+};
+
+export type StructuredCvData = {
+  personal: {
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    links: string[];
+  };
+  targetRole: string;
+  summary: string;
+  skills: string[];
+  experience: Array<{
+    title: string;
+    company: string;
+    period: string;
+    highlights: string[];
+  }>;
+  education: Array<{
+    institution: string;
+    degree: string;
+    period: string;
+    details: string[];
+  }>;
+  certifications: string[];
+  projects: Array<{
+    name: string;
+    description: string;
+    technologies: string[];
+  }>;
 };
 
 export type EmailThreadSummary = {
@@ -78,21 +120,30 @@ export class EmailService {
   }
 
   async extractCvText(filePath: string, originalName: string): Promise<string> {
+    const raw = await fs.readFile(filePath);
+    return this.extractCvTextFromBuffer(raw, originalName);
+  }
+
+  async extractCvTextFromBuffer(
+    fileBuffer: Buffer,
+    originalName: string,
+  ): Promise<string> {
     const ext = extname(originalName).toLowerCase();
 
     try {
       if (ext === '.txt' || ext === '.text' || ext === '.md') {
-        const raw = await fs.readFile(filePath, 'utf8');
-        return this.normalizeText(raw);
+        return this.normalizeText(fileBuffer.toString('utf8'));
       }
 
       if (ext === '.pdf' || ext === '.docx' || ext === '.pptx') {
-        const raw = await parseOfficeAsync(filePath);
+        const tempPath = await this.writeTempFile(fileBuffer, ext);
+        const raw = await parseOfficeAsync(tempPath);
+        await fs.unlink(tempPath).catch(() => undefined);
         return this.normalizeText(raw);
       }
 
       if (ext === '.doc') {
-        const raw = await this.extractLegacyDoc(filePath);
+        const raw = await this.extractLegacyDocFromBuffer(fileBuffer);
         return this.normalizeText(raw);
       }
 
@@ -191,6 +242,109 @@ ${cvExcerpt}
     return parsed;
   }
 
+  async optimizeCvForJob(input: {
+    cvText: string;
+    parsedCv: ParsedCvSections;
+    jobDescription: string;
+    standard: string;
+    templateName: string;
+    templateDescription: string;
+    requestedKeywords: string[];
+    clientProfile?: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      location?: string;
+    };
+  }): Promise<OptimizedCvResult> {
+    const cvExcerpt = this.truncate(input.cvText, 14000);
+    const jobExcerpt = this.truncate(input.jobDescription, 12000);
+    const requestedKeywords = input.requestedKeywords.length
+      ? input.requestedKeywords.join(', ')
+      : 'none';
+    const clientHints = JSON.stringify(
+      {
+        name: input.clientProfile?.name || null,
+        email: input.clientProfile?.email || null,
+        phone: input.clientProfile?.phone || null,
+        location: input.clientProfile?.location || null,
+      },
+      null,
+      2,
+    );
+
+    const output = await this.generateJson(
+      'You are an expert CV optimizer. Rewrite CVs to match job descriptions while staying truthful and ATS-ready.',
+      `Return strict JSON with keys:
+- optimizedCvText (string)
+- extractedKeywords (string[])
+- missingKeywords (string[])
+- atsScore (number 0-100)
+- recommendations (string[])
+- structuredCv (object)
+
+structuredCv schema:
+{
+  "personal": { "name": string, "email": string, "phone": string, "location": string, "links": string[] },
+  "targetRole": string,
+  "summary": string,
+  "skills": string[],
+  "experience": [{ "title": string, "company": string, "period": string, "highlights": string[] }],
+  "education": [{ "institution": string, "degree": string, "period": string, "details": string[] }],
+  "certifications": string[],
+  "projects": [{ "name": string, "description": string, "technologies": string[] }]
+}
+
+Rules:
+- Do not invent experience, certifications, or education that are not in CV.
+- Optimize for standard: ${input.standard}
+- Use this template style: ${input.templateName} - ${input.templateDescription}
+- Incorporate requested keywords when truthful: ${requestedKeywords}
+- Preserve and surface client identity/contact details at the top of CV.
+- Client hints (prefer when provided, else infer from CV): ${clientHints}
+- Make optimizedCvText concise, professional, and scannable.
+- Ensure extractedKeywords has 6-20 relevant terms from job description.
+- recommendations must have 3-8 actionable bullets.
+
+Job Description:
+${jobExcerpt}
+
+Parsed CV:
+${JSON.stringify(input.parsedCv)}
+
+Raw CV:
+${cvExcerpt}
+`,
+    );
+
+    const parsed = this.parseJsonFromText(output) as OptimizedCvResult;
+    if (
+      !parsed ||
+      typeof parsed.optimizedCvText !== 'string' ||
+      !Array.isArray(parsed.extractedKeywords) ||
+      !Array.isArray(parsed.missingKeywords) ||
+      !Array.isArray(parsed.recommendations) ||
+      typeof parsed.atsScore !== 'number' ||
+      !parsed.structuredCv ||
+      typeof parsed.structuredCv !== 'object' ||
+      !parsed.structuredCv.personal ||
+      typeof parsed.structuredCv.personal !== 'object'
+    ) {
+      throw new InternalServerErrorException(
+        'Invalid optimized CV output shape',
+      );
+    }
+
+    return {
+      optimizedCvText: parsed.optimizedCvText.trim(),
+      extractedKeywords: parsed.extractedKeywords,
+      missingKeywords: parsed.missingKeywords,
+      recommendations: parsed.recommendations,
+      atsScore: Math.max(0, Math.min(100, Math.round(parsed.atsScore))),
+      structuredCv: parsed.structuredCv,
+    };
+  }
+
   async listThreads(userId: string): Promise<EmailThreadSummary[]> {
     const result = await dbPool.query(
       `
@@ -287,19 +441,18 @@ ${cvExcerpt}
     }
 
     try {
-      await fs.access(row.storedPath);
+      const fileBuffer = await objectStorage.getBuffer(row.storedPath);
+      return {
+        cvId: row.id,
+        fileBuffer,
+        originalName: row.fileName,
+        isDefault: row.isDefault,
+      };
     } catch {
       throw new BadRequestException(
-        `Stored CV file is missing on disk: ${row.fileName}`,
+        `Stored CV file is missing in object storage: ${row.fileName}`,
       );
     }
-
-    return {
-      cvId: row.id,
-      filePath: row.storedPath,
-      originalName: row.fileName,
-      isDefault: row.isDefault,
-    };
   }
 
   async saveGeneratedEmail(
@@ -384,6 +537,23 @@ ${cvExcerpt}
     const raw = await fs.readFile(convertedPath, 'utf8');
     await fs.unlink(convertedPath).catch(() => undefined);
     return raw;
+  }
+
+  private async extractLegacyDocFromBuffer(
+    fileBuffer: Buffer,
+  ): Promise<string> {
+    const tempPath = await this.writeTempFile(fileBuffer, '.doc');
+    try {
+      return await this.extractLegacyDoc(tempPath);
+    } finally {
+      await fs.unlink(tempPath).catch(() => undefined);
+    }
+  }
+
+  private async writeTempFile(buffer: Buffer, ext: string): Promise<string> {
+    const path = `${tmpdir()}/${Date.now()}-${randomUUID()}${ext}`;
+    await fs.writeFile(path, buffer);
+    return path;
   }
 
   private getBaseName(filePath: string): string {

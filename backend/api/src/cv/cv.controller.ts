@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -13,14 +14,15 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { type Request } from 'express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { randomUUID } from 'node:crypto';
-import { promises as fs } from 'node:fs';
-import { extname, join } from 'node:path';
+import { extname } from 'node:path';
 import { dbPool } from '../lib/db';
 import { EmailService, type ParsedCvSections } from '../email/email.service';
-
-const cvUploadsDir = join(process.cwd(), 'tmp', 'cv');
+import { EmailQuotaService } from '../email/email-quota.service';
+import { objectStorage } from '../lib/object-storage';
+import { CvOptimizationService } from './cv-optimization.service';
+import { OptimizeCvDto } from './dto/optimize-cv.dto';
 
 type AuthenticatedRequest = Request & {
   user?: {
@@ -29,22 +31,16 @@ type AuthenticatedRequest = Request & {
 };
 
 function createCvStorage() {
-  return diskStorage({
-    destination: (_req, _file, cb) => {
-      fs.mkdir(cvUploadsDir, { recursive: true })
-        .then(() => cb(null, cvUploadsDir))
-        .catch((error: NodeJS.ErrnoException) => cb(error, cvUploadsDir));
-    },
-    filename: (_req, file, cb) => {
-      const suffix = extname(file.originalname).toLowerCase();
-      cb(null, `${Date.now()}-${randomUUID()}${suffix}`);
-    },
-  });
+  return memoryStorage();
 }
 
 @Controller('api/cv')
 export class CvController {
-  constructor(private readonly emailService: EmailService) {}
+  constructor(
+    private readonly emailService: EmailService,
+    private readonly emailQuotaService: EmailQuotaService,
+    private readonly cvOptimizationService: CvOptimizationService,
+  ) {}
 
   @Get()
   async listCvs(@Req() req: AuthenticatedRequest) {
@@ -61,6 +57,39 @@ export class CvController {
     );
 
     return { cvs: result.rows };
+  }
+
+  @Get('templates')
+  async listCvTemplates() {
+    const templates = await this.cvOptimizationService.listTemplates();
+    return { templates };
+  }
+
+  @Get(':id/optimizations')
+  async listCvOptimizations(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const userId = this.getUserId(req);
+    const history = await this.cvOptimizationService.listOptimizations(
+      userId,
+      id,
+    );
+    return { history };
+  }
+
+  @Post('optimize')
+  async optimizeCv(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: OptimizeCvDto,
+  ) {
+    const userId = this.getUserId(req);
+    await this.emailQuotaService.assertAndConsume(userId, 'generate');
+    const optimization = await this.cvOptimizationService.optimizeCv(
+      userId,
+      dto,
+    );
+    return optimization;
   }
 
   @Post('upload')
@@ -81,8 +110,16 @@ export class CvController {
         'CV file is required as multipart field: cv',
       );
     }
+    this.assertSupportedCv(cv.originalname);
 
     const userId = this.getUserId(req);
+    const key = this.buildStorageKey(userId, cv.originalname);
+
+    await objectStorage.putBuffer(
+      key,
+      cv.buffer,
+      cv.mimetype || 'application/octet-stream',
+    );
 
     const existing = await dbPool.query(
       'SELECT id FROM cv_documents WHERE "userId" = $1 AND "isDefault" = true LIMIT 1',
@@ -100,7 +137,7 @@ export class CvController {
         randomUUID(),
         userId,
         cv.originalname,
-        cv.path,
+        key,
         cv.mimetype,
         cv.size,
         existing.rowCount === 0,
@@ -187,7 +224,7 @@ export class CvController {
       'DELETE FROM cv_documents WHERE id = $1 AND "userId" = $2',
       [id, userId],
     );
-    await fs.unlink(row.storedPath).catch(() => undefined);
+    await objectStorage.deleteObject(row.storedPath).catch(() => undefined);
 
     if (row.isDefault) {
       const fallback = await dbPool.query(
@@ -216,6 +253,16 @@ export class CvController {
       throw new BadRequestException('Missing authenticated user id');
     }
     return userId;
+  }
+
+  private assertSupportedCv(fileName: string) {
+    const ext = extname(fileName).toLowerCase();
+    const allowed = ['.txt', '.text', '.md', '.pdf', '.docx', '.pptx', '.doc'];
+    if (!allowed.includes(ext)) {
+      throw new BadRequestException(
+        `Unsupported CV format "${ext}". Use txt, md, pdf, docx, pptx, or doc.`,
+      );
+    }
   }
 
   private async ensureParsedCv(userId: string, cvId: string, force = false) {
@@ -251,8 +298,9 @@ export class CvController {
       };
     }
 
-    const cvText = await this.emailService.extractCvText(
-      row.storedPath,
+    const buffer = await objectStorage.getBuffer(row.storedPath);
+    const cvText = await this.emailService.extractCvTextFromBuffer(
+      buffer,
       row.fileName,
     );
     const parsed = await this.emailService.parseCvSections(cvText);
@@ -277,5 +325,10 @@ export class CvController {
       fromCache: false,
       parsedAt: updatedRow?.parsedCvUpdatedAt ?? null,
     };
+  }
+
+  private buildStorageKey(userId: string, originalName: string): string {
+    const suffix = extname(originalName).toLowerCase();
+    return `cv/${userId}/${Date.now()}-${randomUUID()}${suffix}`;
   }
 }

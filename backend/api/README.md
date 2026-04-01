@@ -25,11 +25,63 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## SmartApply Environment
+
+Set these in `backend/api/.env`:
+
+```bash
+# Existing
+DATABASE_URL=postgresql://...
+FRONTEND_URL=http://localhost:3000
+BETTER_AUTH_URL=http://localhost:3001
+OPENROUTER_API_KEY=...
+OPENROUTER_MODEL=nvidia/nemotron-3-super-120b-a12b:free
+
+# Durable object storage (S3/R2)
+OBJECT_STORAGE_BUCKET=smartapply-cv
+OBJECT_STORAGE_REGION=auto
+OBJECT_STORAGE_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+OBJECT_STORAGE_ACCESS_KEY_ID=...
+OBJECT_STORAGE_SECRET_ACCESS_KEY=...
+OBJECT_STORAGE_FORCE_PATH_STYLE=true
+
+# AI limits / quotas
+AI_MAX_PER_MINUTE=20
+AI_MAX_PARSE_PER_DAY=120
+AI_MAX_GENERATE_PER_DAY=80
+```
+
+Metrics endpoint: `GET /metrics`  
+Request tracing header: `x-request-id`
+
+## CV Optimization Endpoints
+
+- `GET /api/cv/templates` - returns active CV templates (10 seeded designs)
+- `POST /api/cv/optimize` - tailors selected/default CV to a job description
+- `GET /api/cv/:id/optimizations` - optimization history for a CV (includes `structuredCvJson`)
+
 ## Project setup
 
 ```bash
 $ npm install
 ```
+
+## Auto Migrations
+
+Backend start commands now auto-run pending Drizzle migrations before boot:
+
+- `npm run start`
+- `npm run start:dev`
+- `npm run start:debug`
+- `npm run start:prod`
+
+You can also run migrations manually:
+
+```bash
+npm run db:migrate
+```
+
+The migration runner is baseline-aware for existing databases: it marks already-present schema migrations as applied and only executes truly pending files.
 
 ## Compile and run the project
 

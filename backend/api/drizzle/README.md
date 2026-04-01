@@ -7,6 +7,9 @@ This folder contains SQL migrations for the backend API.
 - `0001_better_auth_schema_reset.sql`
 - `0002_email_history_and_cv.sql`
 - `0003_cv_parsed_cache.sql`
+- `0004_ai_usage_daily.sql`
+- `0005_cv_optimization_templates.sql`
+- `0006_cv_structured_json.sql`
 
 ## Run a migration
 
@@ -24,6 +27,9 @@ DATABASE_URL=$(grep '^DATABASE_URL=' .env | head -n1 | cut -d= -f2- | sed -e "s/
 psql "$DATABASE_URL" -f drizzle/0001_better_auth_schema_reset.sql
 psql "$DATABASE_URL" -f drizzle/0002_email_history_and_cv.sql
 psql "$DATABASE_URL" -f drizzle/0003_cv_parsed_cache.sql
+psql "$DATABASE_URL" -f drizzle/0004_ai_usage_daily.sql
+psql "$DATABASE_URL" -f drizzle/0005_cv_optimization_templates.sql
+psql "$DATABASE_URL" -f drizzle/0006_cv_structured_json.sql
 ```
 
 ## Verify tables were created
