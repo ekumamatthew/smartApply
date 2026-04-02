@@ -350,6 +350,14 @@ export default function DashboardPage() {
         setOptimizeNote(
           `CV optimized with ${templateName}. You can review it in CV Management history.`
         )
+
+        await queryClient.invalidateQueries({
+          queryKey: ["cv-optimization-history", defaultCv.id],
+        })
+        await queryClient.refetchQueries({
+          queryKey: ["cv-optimization-history", defaultCv.id],
+          type: "active",
+        })
       } else {
         setOptimizeNote("")
       }
