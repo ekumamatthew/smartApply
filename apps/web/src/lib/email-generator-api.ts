@@ -34,30 +34,39 @@ export async function parseCvFile(cv: File): Promise<{
 export async function generateApplicationEmail(
   payload: GenerateEmailPayload
 ): Promise<GeneratedEmail> {
-  const formData = new FormData()
-
-  if (payload.cv) {
-    formData.append("cv", payload.cv)
-  } else if (payload.cvId) {
-    formData.append("cvId", payload.cvId)
-  } else {
+  if (!payload.cv && !payload.cvId) {
     throw new Error("Provide either cv file or cvId")
   }
 
-  formData.append("jobDescription", payload.jobDescription)
-  formData.append("recipientEmail", payload.recipientEmail)
+  const baseBody = {
+    cvId: payload.cvId,
+    jobDescription: payload.jobDescription,
+    recipientEmail: payload.recipientEmail,
+    recipientName: payload.recipientName,
+    applicantName: payload.applicantName,
+    additionalContext: payload.additionalContext,
+    tone: payload.tone,
+  }
 
-  if (payload.recipientName) formData.append("recipientName", payload.recipientName)
-  if (payload.applicantName) formData.append("applicantName", payload.applicantName)
-  if (payload.additionalContext)
-    formData.append("additionalContext", payload.additionalContext)
-  if (payload.tone) formData.append("tone", payload.tone)
+  const response = payload.cv
+    ? await (() => {
+        const formData = new FormData()
+        formData.append("cv", payload.cv as File)
+        formData.append("jobDescription", payload.jobDescription)
+        formData.append("recipientEmail", payload.recipientEmail)
+        if (payload.recipientName) formData.append("recipientName", payload.recipientName)
+        if (payload.applicantName) formData.append("applicantName", payload.applicantName)
+        if (payload.additionalContext)
+          formData.append("additionalContext", payload.additionalContext)
+        if (payload.tone) formData.append("tone", payload.tone)
 
-  const response = await api.post("/api/email/generate", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  })
+        return api.post("/api/email/generate", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        })
+      })()
+    : await api.post("/api/email/generate", baseBody)
 
   return response.data
 }

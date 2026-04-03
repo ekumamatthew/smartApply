@@ -84,7 +84,7 @@ export class CvController {
     @Body() dto: OptimizeCvDto,
   ) {
     const userId = this.getUserId(req);
-    await this.emailQuotaService.assertAndConsume(userId, 'generate');
+    await this.emailQuotaService.assertAndConsume(userId, 'parse');
     const optimization = await this.cvOptimizationService.optimizeCv(
       userId,
       dto,

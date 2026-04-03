@@ -83,6 +83,14 @@ async function isAppliedBySchema(client, tag) {
     return await columnExists(client, 'cv_optimizations', 'structuredCvJson');
   }
 
+  if (tag === '0007_billing_credits') {
+    return (
+      (await tableExists(client, 'user_credits')) &&
+      (await tableExists(client, 'credit_ledger')) &&
+      (await tableExists(client, 'credit_orders'))
+    );
+  }
+
   return false;
 }
 
@@ -121,6 +129,7 @@ function getMigrationOrder() {
     '0004_ai_usage_daily',
     '0005_cv_optimization_templates',
     '0006_cv_structured_json',
+    '0007_billing_credits',
   ];
 }
 

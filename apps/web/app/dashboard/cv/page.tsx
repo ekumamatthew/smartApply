@@ -1,6 +1,8 @@
 "use client"
 
 import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
+import { useAppToast } from "@/src/components/AppToastProvider"
+import { UpgradePricingModal } from "@/src/components/UpgradePricingModal"
 import {
   deleteCv,
   fetchCvs,
@@ -54,6 +56,16 @@ function formatFileSize(bytes: number) {
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (typeof error === "object" && error !== null) {
+    const maybeCode = (error as { code?: unknown }).code
+    if (
+      typeof maybeCode === "string" &&
+      (maybeCode === "TRIAL_EXHAUSTED_EMAIL" ||
+        maybeCode === "TRIAL_EXHAUSTED_CV" ||
+        maybeCode === "INSUFFICIENT_CREDITS")
+    ) {
+      return "Free trial exhausted. Upgrade to get unlimited access."
+    }
+
     const maybeMessage = (error as { message?: unknown }).message
     if (typeof maybeMessage === "string" && maybeMessage.trim()) {
       return maybeMessage
@@ -66,6 +78,16 @@ function getErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback
+}
+
+function shouldShowUpgradeModal(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const code = (error as { code?: unknown }).code
+  return (
+    code === "TRIAL_EXHAUSTED_EMAIL" ||
+    code === "TRIAL_EXHAUSTED_CV" ||
+    code === "INSUFFICIENT_CREDITS"
+  )
 }
 
 function CvListItem({
@@ -152,13 +174,19 @@ function CvListItem({
 
 export default function CVManagementPage() {
   const queryClient = useQueryClient()
+  const { showToast } = useAppToast()
   const [selectedCvId, setSelectedCvId] = useAtom(selectedCvIdAtom)
   const [error, setError] = useAtom(cvManagementErrorAtom)
   const [uploadingFile, setUploadingFile] = React.useState<File | null>(null)
   const [optimizationForm, setOptimizationForm] = useAtom(cvOptimizationFormAtom)
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<string>("clean")
   const [showTemplatePicker, setShowTemplatePicker] = React.useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = React.useState(false)
   const [isExportingPdf, setIsExportingPdf] = React.useState(false)
+  const [showOptimizeProgressModal, setShowOptimizeProgressModal] =
+    React.useState(false)
+  const [optimizeActivity, setOptimizeActivity] =
+    React.useState("optimizing your CV")
   const previewRef = React.useRef<HTMLDivElement | null>(null)
   const exportRef = React.useRef<HTMLDivElement | null>(null)
 
@@ -238,6 +266,13 @@ export default function CVManagementPage() {
   }, [structuredCv])
 
   const uploadMutation = useMutation({
+    onMutate: () => {
+      showToast({
+        variant: "info",
+        title: "CV upload started",
+        description: "Uploading your CV now.",
+      })
+    },
     mutationFn: async (file: File) => uploadCv(file),
     onSuccess: async (uploaded) => {
       await queryClient.invalidateQueries({ queryKey: ["cv-list"] })
@@ -246,9 +281,20 @@ export default function CVManagementPage() {
       }
       setError("")
       setUploadingFile(null)
+      showToast({
+        variant: "success",
+        title: "CV upload complete",
+        description: "Your CV is ready and listed below.",
+      })
     },
     onError: (mutationError: unknown) => {
-      setError(getErrorMessage(mutationError, "Failed to upload CV"))
+      const message = getErrorMessage(mutationError, "Failed to upload CV")
+      setError(message)
+      showToast({
+        variant: "error",
+        title: "CV upload failed",
+        description: message,
+      })
     },
   })
 
@@ -279,6 +325,9 @@ export default function CVManagementPage() {
         queryClient.setQueryData(["cv-list"], context.previous)
       }
       setError(getErrorMessage(mutationError, "Failed to set default CV"))
+      if (shouldShowUpgradeModal(mutationError)) {
+        setShowUpgradeModal(true)
+      }
     },
   })
 
@@ -293,7 +342,24 @@ export default function CVManagementPage() {
     },
   })
 
+  const stopOptimizeProgress = React.useCallback(() => {
+    setShowOptimizeProgressModal(false)
+  }, [])
+
+  const startOptimizeProgress = React.useCallback((activity: string) => {
+    setOptimizeActivity(activity)
+    setShowOptimizeProgressModal(true)
+  }, [])
+
   const optimizeMutation = useMutation({
+    onMutate: () => {
+      startOptimizeProgress("optimizing your CV for this job")
+      showToast({
+        variant: "info",
+        title: "CV optimization started",
+        description: "You can continue in background while we process it.",
+      })
+    },
     mutationFn: async () => {
       if (!selectedCv?.id) {
         throw new Error("Select or upload a CV first")
@@ -324,9 +390,25 @@ export default function CVManagementPage() {
         queryKey: ["cv-optimization-history", selectedCv?.id],
       })
       setError("")
+      setShowOptimizeProgressModal(false)
+      showToast({
+        variant: "success",
+        title: "CV optimization complete",
+        description: "Preview has been updated. You can also review this in Applications.",
+      })
     },
     onError: (mutationError: unknown) => {
-      setError(getErrorMessage(mutationError, "Failed to optimize CV"))
+      const message = getErrorMessage(mutationError, "Failed to optimize CV")
+      setError(message)
+      stopOptimizeProgress()
+      if (shouldShowUpgradeModal(mutationError)) {
+        setShowUpgradeModal(true)
+      }
+      showToast({
+        variant: "error",
+        title: "CV optimization failed",
+        description: message,
+      })
     },
   })
 
@@ -778,6 +860,44 @@ export default function CVManagementPage() {
             </div>
           </div>
         ) : null}
+
+        {showOptimizeProgressModal ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
+            <div className="w-[92%] max-w-md rounded-2xl border bg-background/95 p-6 shadow-2xl">
+              <p className="text-sm font-medium text-muted-foreground">SmartApply Progress</p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Stay patient as we {optimizeActivity}...
+              </h3>
+              <div className="mt-6 flex items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Processing...</span>
+              </div>
+
+              <div className="mt-5 flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowOptimizeProgressModal(false)
+                    showToast({
+                      variant: "info",
+                      title: "Optimization continues in background",
+                      description: "We will notify you when it is complete.",
+                    })
+                  }}
+                >
+                  Continue in background
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <UpgradePricingModal
+          open={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+        />
       </div>
     </AuthenticatedDashboardLayout>
   )

@@ -1,6 +1,8 @@
 "use client"
 
 import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
+import { useAppToast } from "@/src/components/AppToastProvider"
+import { UpgradePricingModal } from "@/src/components/UpgradePricingModal"
 import { CV_TEMPLATE_DEFINITIONS } from "@/src/components/cv-builder/templates"
 import {
   fallbackStructuredCv,
@@ -45,6 +47,18 @@ import {
 import * as React from "react"
 
 function getErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "object" && error !== null) {
+    const maybeCode = (error as { code?: unknown }).code
+    if (
+      typeof maybeCode === "string" &&
+      (maybeCode === "TRIAL_EXHAUSTED_EMAIL" ||
+        maybeCode === "TRIAL_EXHAUSTED_CV" ||
+        maybeCode === "INSUFFICIENT_CREDITS")
+    ) {
+      return "Free trial exhausted. Upgrade to get unlimited access."
+    }
+  }
+
   if (error instanceof Error) return error.message
 
   if (
@@ -57,6 +71,16 @@ function getErrorMessage(error: unknown, fallback: string): string {
   }
 
   return fallback
+}
+
+function shouldShowUpgradeModal(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const code = (error as { code?: unknown }).code
+  return (
+    code === "TRIAL_EXHAUSTED_EMAIL" ||
+    code === "TRIAL_EXHAUSTED_CV" ||
+    code === "INSUFFICIENT_CREDITS"
+  )
 }
 
 export default function DashboardPage() {
@@ -78,12 +102,11 @@ export default function DashboardPage() {
   const [previewTemplateId, setPreviewTemplateId] = React.useState("clean")
   const [isExportingPdf, setIsExportingPdf] = React.useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = React.useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = React.useState(false)
   const exportRef = React.useRef<HTMLDivElement | null>(null)
   const [showProgressModal, setShowProgressModal] = React.useState(false)
-  const [progressValue, setProgressValue] = React.useState(1)
   const [progressActivity, setProgressActivity] = React.useState("Preparing request")
-  const progressCapRef = React.useRef(90)
-  const progressTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const { showToast } = useAppToast()
 
   const cvsQuery = useQuery({
     queryKey: ["cv-list"],
@@ -222,29 +245,13 @@ export default function DashboardPage() {
   }
 
   const stopProgressModal = React.useCallback(() => {
-    if (progressTimerRef.current) {
-      clearInterval(progressTimerRef.current)
-      progressTimerRef.current = null
-    }
     setShowProgressModal(false)
   }, [])
 
   const startProgressModal = React.useCallback(
-    (activity: string, cap: number) => {
+    (activity: string) => {
       setShowProgressModal(true)
-      setProgressValue(1)
       setProgressActivity(activity)
-      progressCapRef.current = cap
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current)
-      }
-      progressTimerRef.current = setInterval(() => {
-        setProgressValue((prev) => {
-          if (prev >= progressCapRef.current) return prev
-          const step = prev < 35 ? 2 : prev < 70 ? 1.5 : 1
-          return Math.min(progressCapRef.current, Math.round(prev + step))
-        })
-      }, 180)
     },
     []
   )
@@ -312,7 +319,7 @@ export default function DashboardPage() {
         throw new Error("Please provide recipient email")
       }
 
-      startProgressModal("generating your tailored email", optimizeAlongside ? 76 : 92)
+      startProgressModal("generating your tailored email")
 
       const email = await generateApplicationEmail({
         cvId: defaultCv.id,
@@ -328,8 +335,6 @@ export default function DashboardPage() {
 
       if (optimizeAlongside) {
         setProgressActivity("optimizing your CV")
-        progressCapRef.current = 95
-        setProgressValue((prev) => Math.max(prev, 72))
 
         const keywords = extraCvRequirements
           .split(",")
@@ -363,24 +368,31 @@ export default function DashboardPage() {
       }
 
       setProgressActivity("finalizing results")
-      setProgressValue((prev) => Math.max(prev, 98))
 
       return email
     },
     onSuccess: (data) => {
       setGeneratedEmail(data)
       setError("")
-      setProgressValue(100)
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current)
-        progressTimerRef.current = null
-      }
-      setTimeout(() => {
-        setShowProgressModal(false)
-      }, 420)
+      showToast({
+        variant: "success",
+        title: "Email generation complete",
+        description:
+          "Your email has been saved in Applications. Open a thread to view history and CV preview.",
+      })
+      setShowProgressModal(false)
     },
     onError: (err: unknown) => {
-      setError(getErrorMessage(err, "Failed to generate email"))
+      const message = getErrorMessage(err, "Failed to generate email")
+      setError(message)
+      if (shouldShowUpgradeModal(err)) {
+        setShowUpgradeModal(true)
+      }
+      showToast({
+        variant: "error",
+        title: "Generation failed",
+        description: message,
+      })
       stopProgressModal()
     },
   })
@@ -406,14 +418,6 @@ export default function DashboardPage() {
     loadDefaultCvParsedMutation.mutate({ cvId: defaultCv.id })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultCv?.id])
-
-  React.useEffect(() => {
-    return () => {
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current)
-      }
-    }
-  }, [])
 
   return (
     <AuthenticatedDashboardLayout>
@@ -908,21 +912,36 @@ export default function DashboardPage() {
               <h3 className="mt-1 text-lg font-semibold">
                 Stay patient as we {progressActivity}...
               </h3>
-
-              <div className="mt-5 rounded-full bg-muted">
-                <div
-                  className="h-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-300"
-                  style={{ width: `${Math.max(1, Math.min(100, progressValue))}%` }}
-                />
+              <div className="mt-6 flex items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Processing...</span>
               </div>
 
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Processing</span>
-                <span className="font-semibold">{Math.max(1, Math.min(100, progressValue))}%</span>
+              <div className="mt-5 flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowProgressModal(false)
+                    showToast({
+                      variant: "info",
+                      title: "Processing continues in background",
+                      description: "We will notify you here when it is done.",
+                    })
+                  }}
+                >
+                  Continue in background
+                </Button>
               </div>
             </div>
           </div>
         ) : null}
+
+        <UpgradePricingModal
+          open={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+        />
       </div>
     </AuthenticatedDashboardLayout>
   )

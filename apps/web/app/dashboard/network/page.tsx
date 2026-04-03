@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@workspace/ui/components/button"
-import { DashboardLayout } from "@workspace/ui/components/dashboard-layout"
+import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import {
   ArrowLeft,
   Mail,
@@ -14,7 +14,7 @@ import * as React from "react"
 
 export default function NetworkPage() {
   return (
-    <DashboardLayout>
+    <AuthenticatedDashboardLayout>
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center space-y-8 max-w-2xl">
           {/* Animated Coming Soon */}
@@ -92,6 +92,6 @@ export default function NetworkPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </AuthenticatedDashboardLayout>
   )
 }

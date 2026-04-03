@@ -4,7 +4,7 @@ import { AuthenticatedHeader } from "@/src/components/AuthenticatedHeader"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { Chrome, Eye } from "lucide-react"
+import { Chrome, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { authClient, useSession } from "../../../src/auth/web-auth-client"
@@ -13,8 +13,10 @@ export default function SignUpPage() {
   const { data: session } = useSession()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -145,7 +147,7 @@ export default function SignUpPage() {
                 <div className="relative">
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Create a password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -157,8 +159,13 @@ export default function SignUpPage() {
                     variant="ghost"
                     size="icon"
                     className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
                   >
-                    <Eye className="h-4 w-4" />
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                     <span className="sr-only">Toggle password visibility</span>
                   </Button>
                 </div>
@@ -168,7 +175,7 @@ export default function SignUpPage() {
                 <div className="relative">
                   <Input
                     id="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -180,8 +187,13 @@ export default function SignUpPage() {
                     variant="ghost"
                     size="icon"
                     className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
-                    <Eye className="h-4 w-4" />
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                     <span className="sr-only">
                       Toggle confirm password visibility
                     </span>

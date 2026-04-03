@@ -49,8 +49,20 @@ OBJECT_STORAGE_FORCE_PATH_STYLE=true
 
 # AI limits / quotas
 AI_MAX_PER_MINUTE=20
-AI_MAX_PARSE_PER_DAY=120
-AI_MAX_GENERATE_PER_DAY=80
+AI_MAX_PARSE_PER_DAY=4
+AI_MAX_GENERATE_PER_DAY=4
+
+# Billing / credits (Flutterwave)
+FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST_or_LIVE_...
+FLUTTERWAVE_REDIRECT_URL=https://smart-apply-web.vercel.app/dashboard/settings?billing=success
+FLUTTERWAVE_CANCEL_URL=https://smart-apply-web.vercel.app/dashboard/settings?billing=cancelled
+# Optional but recommended for webhook verification:
+FLUTTERWAVE_WEBHOOK_HASH=your_flutterwave_webhook_hash
+BILLING_CURRENCY=USD
+CREDITS_PER_USD=100
+MIN_PURCHASE_USD_CENTS=100
+CREDIT_COST_PARSE=25
+CREDIT_COST_GENERATE=40
 ```
 
 Metrics endpoint: `GET /metrics`  
@@ -61,6 +73,17 @@ Request tracing header: `x-request-id`
 - `GET /api/cv/templates` - returns active CV templates (10 seeded designs)
 - `POST /api/cv/optimize` - tailors selected/default CV to a job description
 - `GET /api/cv/:id/optimizations` - optimization history for a CV (includes `structuredCvJson`)
+
+## Billing Webhook (Flutterwave)
+
+- Endpoint: `POST /api/billing/webhook/flutterwave`
+- Set this URL in Flutterwave dashboard webhooks.
+- If you set `FLUTTERWAVE_WEBHOOK_HASH`, webhook requests must include matching `verif-hash` header.
+- Webhook flow:
+  1. receives event
+  2. finds order by `tx_ref`
+  3. verifies transaction with Flutterwave API
+  4. credits wallet idempotently
 
 ## Project setup
 
