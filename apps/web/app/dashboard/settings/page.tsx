@@ -1,9 +1,16 @@
 "use client"
 
 import { Button } from "@workspace/ui/components/button"
-import { DashboardLayout } from "@workspace/ui/components/dashboard-layout"
+import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
+import { useAppToast } from "@/src/components/AppToastProvider"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import {
+  confirmCreditCheckout,
+  createCreditCheckout,
+  fetchBillingSummary,
+} from "@/src/lib/billing-api"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Bell,
   Briefcase,
@@ -48,12 +55,99 @@ const defaultNotifications: NotificationPreferences = {
 }
 
 export default function SettingsPage() {
+  const queryClient = useQueryClient()
+  const { showToast } = useAppToast()
   const [activeTab, setActiveTab] = React.useState("profile")
   const [profile, setProfile] = React.useState<ProfileData>(defaultProfile)
   const [notifications, setNotifications] =
     React.useState<NotificationPreferences>(defaultNotifications)
+  const [purchaseUsd, setPurchaseUsd] = React.useState("10")
   const [isSaving, setIsSaving] = React.useState(false)
   const [saveMessage, setSaveMessage] = React.useState("")
+
+  const billingQuery = useQuery({
+    queryKey: ["billing-summary"],
+    queryFn: fetchBillingSummary,
+  })
+
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      const amount = Number(purchaseUsd)
+      if (!Number.isFinite(amount) || amount < 1) {
+        throw new Error("Minimum purchase is $1")
+      }
+      return createCreditCheckout(amount)
+    },
+    onSuccess: (data) => {
+      window.location.href = data.checkoutUrl
+    },
+    onError: (error: unknown) => {
+      showToast({
+        variant: "error",
+        title: "Unable to start checkout",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      })
+    },
+  })
+
+  const confirmMutation = useMutation({
+    mutationFn: async (input: {
+      orderId: string
+      transactionId: string
+      txRef?: string
+    }) => confirmCreditCheckout(input.orderId, input.transactionId, input.txRef),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["billing-summary"] })
+      showToast({
+        variant: "success",
+        title: "Payment successful",
+        description: "Credits added to your wallet.",
+      })
+    },
+    onError: (error: unknown) => {
+      showToast({
+        variant: "error",
+        title: "Payment confirmation failed",
+        description:
+          error instanceof Error ? error.message : "Please contact support.",
+      })
+    },
+  })
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    const tab = url.searchParams.get("tab")
+    if (tab === "profile" || tab === "notifications" || tab === "account") {
+      setActiveTab(tab)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    const transactionId = url.searchParams.get("transaction_id")
+    const txRef = url.searchParams.get("tx_ref")
+    const orderId = url.searchParams.get("order_id")
+    const status = url.searchParams.get("billing")
+    if (status === "cancelled") {
+      showToast({
+        variant: "info",
+        title: "Checkout cancelled",
+        description: "No charges were made.",
+      })
+      return
+    }
+    if (!transactionId || !orderId) return
+    if (confirmMutation.isPending) return
+    confirmMutation.mutate({ orderId, transactionId, txRef: txRef ?? undefined })
+    url.searchParams.delete("transaction_id")
+    url.searchParams.delete("tx_ref")
+    url.searchParams.delete("order_id")
+    window.history.replaceState({}, "", url.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleProfileChange = (field: keyof ProfileData, value: string) => {
     setProfile((prev) => ({
@@ -93,7 +187,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <DashboardLayout>
+    <AuthenticatedDashboardLayout>
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
@@ -438,6 +532,63 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+
+            <div id="billing" className="rounded-lg border bg-card p-6">
+              <h2 className="mb-4 text-lg font-semibold">Billing & Credits</h2>
+              <p className="text-sm text-muted-foreground">
+                Free trial: 4 email generations + 4 CV optimizations. Upgrade to
+                keep going with credits.
+              </p>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">Credit Balance</p>
+                  <p className="text-2xl font-bold">
+                    {billingQuery.data?.credits.balance ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">
+                    Email Cost (after trial)
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {billingQuery.data?.rates.generate ?? 40}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">
+                    CV Optimize Cost (after trial)
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {billingQuery.data?.rates.parse ?? 25}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
+                <div className="w-full md:max-w-[240px]">
+                  <Label htmlFor="purchaseUsd">Purchase Amount (USD)</Label>
+                  <Input
+                    id="purchaseUsd"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={purchaseUsd}
+                    onChange={(event) => setPurchaseUsd(event.target.value)}
+                    placeholder="10"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Minimum purchase is $1
+                  </p>
+                </div>
+                <Button
+                  onClick={() => checkoutMutation.mutate()}
+                  disabled={checkoutMutation.isPending}
+                >
+                  {checkoutMutation.isPending ? "Starting checkout..." : "Buy Credits"}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -478,6 +629,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </AuthenticatedDashboardLayout>
   )
 }

@@ -60,6 +60,8 @@ export class EmailController {
       storage: createMulterStorage(),
       limits: {
         fileSize: 10 * 1024 * 1024,
+        fieldSize: 5 * 1024 * 1024,
+        fields: 30,
       },
     }),
   )
@@ -98,6 +100,8 @@ export class EmailController {
       storage: createMulterStorage(),
       limits: {
         fileSize: 10 * 1024 * 1024,
+        fieldSize: 5 * 1024 * 1024,
+        fields: 30,
       },
     }),
   )

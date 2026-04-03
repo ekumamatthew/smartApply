@@ -156,3 +156,45 @@ export const aiUsageDaily = pgTable('ai_usage_daily', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
+
+// ----- User Credits -----
+export const userCredits = pgTable('user_credits', {
+  userId: text('userId')
+    .notNull()
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  balance: integer('balance').notNull().default(0),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- Credit Ledger -----
+export const creditLedger = pgTable('credit_ledger', {
+  id: text('id').primaryKey(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  amount: integer('amount').notNull(),
+  balanceAfter: integer('balanceAfter').notNull(),
+  reason: text('reason'),
+  meta: jsonb('meta'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
+// ----- Credit Orders -----
+export const creditOrder = pgTable('credit_orders', {
+  id: text('id').primaryKey(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  amountUsdCents: integer('amountUsdCents').notNull(),
+  credits: integer('credits').notNull(),
+  status: text('status').notNull().default('pending'),
+  provider: text('provider').notNull().default('flutterwave'),
+  providerSessionId: text('providerSessionId'),
+  providerPaymentId: text('providerPaymentId'),
+  creditedAt: timestamp('creditedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});

@@ -8,6 +8,8 @@ import { HttpLoggingInterceptor } from './common/interceptors/http-logging.inter
 import { MetricsService } from './common/services/metrics.service';
 import { CvController } from './cv/cv.controller';
 import { CvOptimizationService } from './cv/cv-optimization.service';
+import { BillingController } from './billing/billing.controller';
+import { BillingService } from './billing/billing.service';
 import { EmailController } from './email/email.controller';
 import { EmailQuotaService } from './email/email-quota.service';
 import { EmailService } from './email/email.service';
@@ -17,11 +19,13 @@ import { EmailService } from './email/email.service';
     AppController,
     EmailController,
     CvController,
+    BillingController,
     MetricsController,
   ],
   providers: [
     AppService,
     EmailService,
+    BillingService,
     EmailQuotaService,
     CvOptimizationService,
     MetricsService,

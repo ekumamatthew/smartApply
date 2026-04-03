@@ -1,21 +1,31 @@
 import {
+  BadRequestException,
   HttpException,
   HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { BillingService } from '../billing/billing.service';
 import { dbPool } from '../lib/db';
 
 type UsageType = 'parse' | 'generate';
 
 @Injectable()
 export class EmailQuotaService {
+  constructor(private readonly billingService: BillingService) {}
+
   private readonly maxPerMinute = Number(process.env.AI_MAX_PER_MINUTE ?? 20);
+  // "parse" bucket is used for CV optimization trial quota.
   private readonly maxParsePerDay = Number(
-    process.env.AI_MAX_PARSE_PER_DAY ?? 120,
+    process.env.AI_MAX_PARSE_PER_DAY ??
+      process.env.AI_MAX_CV_GENERATE_PER_DAY ??
+      4,
   );
+  // "generate" bucket is used for email generation trial quota.
   private readonly maxGeneratePerDay = Number(
-    process.env.AI_MAX_GENERATE_PER_DAY ?? 80,
+    process.env.AI_MAX_GENERATE_PER_DAY ??
+      process.env.AI_MAX_EMAIL_GENERATE_PER_DAY ??
+      4,
   );
   private readonly minuteCounters = new Map<string, number>();
   private lastCleanupMinute = 0;
@@ -26,7 +36,7 @@ export class EmailQuotaService {
     }
 
     this.enforceMinuteRateLimit(userId, usageType);
-    await this.enforceDailyQuota(userId, usageType);
+    await this.enforceTrialQuota(userId, usageType);
   }
 
   private enforceMinuteRateLimit(userId: string, usageType: UsageType) {
@@ -43,7 +53,7 @@ export class EmailQuotaService {
     }
   }
 
-  private async enforceDailyQuota(userId: string, usageType: UsageType) {
+  private async enforceTrialQuota(userId: string, usageType: UsageType) {
     const date = new Date().toISOString().slice(0, 10);
 
     await dbPool.query(
@@ -55,7 +65,33 @@ export class EmailQuotaService {
       [userId, date],
     );
 
-    const row = await dbPool.query(
+    const totalRow = await dbPool.query(
+      `
+      SELECT
+        COALESCE(SUM("parseCvCount"), 0)::int AS "parseCvCount",
+        COALESCE(SUM("generateEmailCount"), 0)::int AS "generateEmailCount"
+      FROM ai_usage_daily
+      WHERE "userId" = $1
+      `,
+      [userId],
+    );
+
+    const total = (totalRow.rows[0] as
+      | { parseCvCount: number; generateEmailCount: number }
+      | undefined) ?? { parseCvCount: 0, generateEmailCount: 0 };
+
+    if (usageType === 'parse' && total.parseCvCount >= this.maxParsePerDay) {
+      await this.consumePaidCreditOrThrow(userId, usageType);
+    }
+
+    if (
+      usageType === 'generate' &&
+      total.generateEmailCount >= this.maxGeneratePerDay
+    ) {
+      await this.consumePaidCreditOrThrow(userId, usageType);
+    }
+
+    const todayRow = await dbPool.query(
       `
       SELECT "parseCvCount", "generateEmailCount"
       FROM ai_usage_daily
@@ -65,24 +101,9 @@ export class EmailQuotaService {
       [userId, date],
     );
 
-    const current = (row.rows[0] as
+    const current = (todayRow.rows[0] as
       | { parseCvCount: number; generateEmailCount: number }
       | undefined) ?? { parseCvCount: 0, generateEmailCount: 0 };
-
-    if (usageType === 'parse' && current.parseCvCount >= this.maxParsePerDay) {
-      throw this.tooManyRequests(
-        `Daily parse CV quota exceeded (${this.maxParsePerDay}/day).`,
-      );
-    }
-
-    if (
-      usageType === 'generate' &&
-      current.generateEmailCount >= this.maxGeneratePerDay
-    ) {
-      throw this.tooManyRequests(
-        `Daily email generation quota exceeded (${this.maxGeneratePerDay}/day).`,
-      );
-    }
 
     const column =
       usageType === 'parse' ? '"parseCvCount"' : '"generateEmailCount"';
@@ -96,8 +117,20 @@ export class EmailQuotaService {
     );
   }
 
-  private tooManyRequests(message: string) {
+  private tooManyRequests(message: string | Record<string, unknown>) {
     return new HttpException(message, HttpStatus.TOO_MANY_REQUESTS);
+  }
+
+  private async consumePaidCreditOrThrow(userId: string, usageType: UsageType) {
+    try {
+      await this.billingService.consumeCreditsForUsage(userId, usageType);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        const response = error.getResponse();
+        throw this.tooManyRequests(response as Record<string, unknown>);
+      }
+      throw error;
+    }
   }
 
   private cleanupMinuteCounters(currentMinute: number) {

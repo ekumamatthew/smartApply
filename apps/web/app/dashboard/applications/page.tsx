@@ -1,9 +1,17 @@
 "use client"
 
 import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
+import { CV_TEMPLATE_DEFINITIONS } from "@/src/components/cv-builder/templates"
 import {
+  fallbackStructuredCv,
+  mapStructuredCvToViewModel,
+} from "@/src/components/cv-builder/types"
+import {
+  type CvOptimizationHistoryItem,
   type EmailHistoryItem,
   type EmailThreadSummary,
+  fetchCvOptimizationHistory,
+  fetchCvs,
   fetchEmailThreads,
   fetchThreadMessages,
 } from "@/src/lib/dashboard-api"
@@ -28,6 +36,10 @@ function previewText(text: string, max = 160) {
   const compact = text.replace(/\s+/g, " ").trim()
   if (compact.length <= max) return compact
   return `${compact.slice(0, max)}...`
+}
+
+function normalizeJobDescription(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ").replace(/[^\w\s]/g, "")
 }
 
 function ThreadListItem({
@@ -151,6 +163,52 @@ export default function ApplicationsPage() {
   })
 
   const messages = messagesQuery.data || []
+
+  const cvsQuery = useQuery({
+    queryKey: ["cv-list"],
+    queryFn: fetchCvs,
+  })
+  const defaultCv = React.useMemo(() => {
+    const cvs = cvsQuery.data || []
+    return cvs.find((item) => item.isDefault) ?? cvs[0] ?? null
+  }, [cvsQuery.data])
+
+  const optimizationHistoryQuery = useQuery({
+    queryKey: ["cv-optimization-history", defaultCv?.id],
+    queryFn: () => fetchCvOptimizationHistory(defaultCv!.id),
+    enabled: Boolean(defaultCv?.id),
+  })
+
+  const matchedOptimization = React.useMemo<
+    CvOptimizationHistoryItem | null
+  >(() => {
+    if (!selectedThread) return null
+    const target = normalizeJobDescription(selectedThread.jobDescription)
+    const history = optimizationHistoryQuery.data || []
+    return (
+      history.find(
+        (item) => normalizeJobDescription(item.jobDescription) === target
+      ) || null
+    )
+  }, [optimizationHistoryQuery.data, selectedThread])
+
+  const previewStructuredCv = React.useMemo(() => {
+    if (!matchedOptimization) return null
+    if (matchedOptimization.structuredCvJson) {
+      return matchedOptimization.structuredCvJson
+    }
+    if (matchedOptimization.optimizedCvText) {
+      return fallbackStructuredCv(matchedOptimization.optimizedCvText)
+    }
+    return null
+  }, [matchedOptimization])
+
+  const previewTemplateData = React.useMemo(() => {
+    if (!previewStructuredCv) return null
+    return mapStructuredCvToViewModel(previewStructuredCv)
+  }, [previewStructuredCv])
+
+  const previewTemplate = CV_TEMPLATE_DEFINITIONS[0]!
 
   return (
     <AuthenticatedDashboardLayout>
@@ -276,6 +334,29 @@ export default function ApplicationsPage() {
                   {messages.map((item) => (
                     <MessageCard key={item.id} item={item} />
                   ))}
+                </div>
+
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">CV Preview For This Job</p>
+                    <p className="text-xs text-muted-foreground">
+                      {matchedOptimization
+                        ? "From latest optimization"
+                        : "No optimization found for this thread"}
+                    </p>
+                  </div>
+                  {previewTemplateData ? (
+                    <div className="overflow-auto rounded-md border bg-slate-100 p-3">
+                      <div className="origin-top-left scale-[0.72] transform md:scale-[0.8]">
+                        <previewTemplate.Component data={previewTemplateData} />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Optimize CV from the dashboard for this same job description
+                      to see preview here.
+                    </p>
+                  )}
                 </div>
 
                 {selectedThread ? (

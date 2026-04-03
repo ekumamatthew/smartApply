@@ -1,8 +1,8 @@
 "use client"
 
 import { Sidebar } from "@workspace/ui/components/sidebar"
-import { useRouter } from "next/navigation"
-import { authClient } from "../auth/web-auth-client"
+import { usePathname, useRouter } from "next/navigation"
+import { authClient, useSession } from "../auth/web-auth-client"
 
 interface AuthenticatedSidebarProps {
   className?: string
@@ -18,6 +18,8 @@ export function AuthenticatedSidebar({
   onLogout,
 }: AuthenticatedSidebarProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const { data: session } = useSession()
 
   const handleLogout = async () => {
     if (onLogout) {
@@ -36,6 +38,11 @@ export function AuthenticatedSidebar({
         isCollapsed={isCollapsed}
         onToggle={onToggle}
         onLogout={handleLogout}
+        currentPath={pathname}
+        user={{
+          name: session?.user?.name ?? null,
+          email: session?.user?.email ?? null,
+        }}
       />
     </div>
   )
