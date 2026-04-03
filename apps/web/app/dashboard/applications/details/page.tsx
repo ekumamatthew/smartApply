@@ -2,7 +2,7 @@
 
 import { ApplicationDetail } from "@workspace/ui/components/application-detail"
 import { Button } from "@workspace/ui/components/button"
-import { DashboardLayout } from "@workspace/ui/components/dashboard-layout"
+import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import { ArrowLeft, Edit } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import * as React from "react"
@@ -176,7 +176,7 @@ export default function ApplicationDetailsPage() {
 
   if (!application) {
     return (
-      <DashboardLayout>
+      <AuthenticatedDashboardLayout>
         <div className="p-6">
           <div className="text-center">
             <h1 className="mb-4 text-2xl font-bold">Application Not Found</h1>
@@ -189,12 +189,12 @@ export default function ApplicationDetailsPage() {
             </Button>
           </div>
         </div>
-      </DashboardLayout>
+      </AuthenticatedDashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout>
+    <AuthenticatedDashboardLayout>
       <div className="p-6">
         {/* Back Navigation */}
         <div className="mb-6">
@@ -222,6 +222,6 @@ export default function ApplicationDetailsPage() {
           </Button>
         </div>
       </div>
-    </DashboardLayout>
+    </AuthenticatedDashboardLayout>
   )
 }
