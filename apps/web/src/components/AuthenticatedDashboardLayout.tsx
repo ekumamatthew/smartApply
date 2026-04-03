@@ -1,7 +1,9 @@
 "use client"
 
 import { cn } from "@workspace/ui/lib/utils"
+import { usePathname, useRouter } from "next/navigation"
 import * as React from "react"
+import { useSession } from "../auth/web-auth-client"
 import { AuthenticatedSidebar } from "./AuthenticatedSidebar"
 
 interface AuthenticatedDashboardLayoutProps {
@@ -13,6 +15,26 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
   AuthenticatedDashboardLayoutProps
 >(({ children, className, ...props }, ref) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
+  const { data: session, isPending } = useSession()
+
+  React.useEffect(() => {
+    if (isPending) return
+    if (!session) {
+      const callbackUrl = encodeURIComponent(pathname || "/dashboard")
+      router.replace(`/auth/signin?callbackUrl=${callbackUrl}`)
+    }
+  }, [isPending, pathname, router, session])
+
+  if (isPending || !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+
   return (
     <div
       ref={ref}
