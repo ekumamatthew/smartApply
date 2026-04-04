@@ -1,15 +1,22 @@
 "use client"
 
-import { Button } from "@workspace/ui/components/button"
 import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import { useAppToast } from "@/src/components/AppToastProvider"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
+import {
+  fetchSettings,
+  updateNotificationSettings,
+  updateProfileSettings,
+  type UserNotificationSettings,
+  type UserProfileSettings,
+} from "@/src/lib/dashboard-api"
 import {
   confirmCreditCheckout,
   createCreditCheckout,
   fetchBillingSummary,
 } from "@/src/lib/billing-api"
+import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Bell,
@@ -22,31 +29,18 @@ import {
   Settings,
   User,
 } from "lucide-react"
+import Link from "next/link"
 import * as React from "react"
 
-interface ProfileData {
-  name: string
-  email: string
-  phone: string
-  linkedin: string
+const defaultProfile: UserProfileSettings = {
+  fullName: "",
+  email: "",
+  phone: "",
+  linkedin: "",
+  professionalSummary: "",
 }
 
-interface NotificationPreferences {
-  emailNotifications: boolean
-  applicationUpdates: boolean
-  interviewReminders: boolean
-  followUpReminders: boolean
-  weeklyReports: boolean
-}
-
-const defaultProfile: ProfileData = {
-  name: "John Doe",
-  email: "john.doe@example.com",
-  phone: "+1 (555) 123-4567",
-  linkedin: "https://linkedin.com/in/johndoe",
-}
-
-const defaultNotifications: NotificationPreferences = {
+const defaultNotifications: UserNotificationSettings = {
   emailNotifications: true,
   applicationUpdates: true,
   interviewReminders: true,
@@ -58,16 +52,59 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const { showToast } = useAppToast()
   const [activeTab, setActiveTab] = React.useState("profile")
-  const [profile, setProfile] = React.useState<ProfileData>(defaultProfile)
+  const [profile, setProfile] = React.useState<UserProfileSettings>(defaultProfile)
   const [notifications, setNotifications] =
-    React.useState<NotificationPreferences>(defaultNotifications)
+    React.useState<UserNotificationSettings>(defaultNotifications)
   const [purchaseUsd, setPurchaseUsd] = React.useState("10")
-  const [isSaving, setIsSaving] = React.useState(false)
   const [saveMessage, setSaveMessage] = React.useState("")
+
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: fetchSettings,
+  })
 
   const billingQuery = useQuery({
     queryKey: ["billing-summary"],
     queryFn: fetchBillingSummary,
+  })
+
+  React.useEffect(() => {
+    if (!settingsQuery.data) return
+    setProfile(settingsQuery.data.profile)
+    setNotifications(settingsQuery.data.notifications)
+  }, [settingsQuery.data])
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const [savedProfile, savedNotifications] = await Promise.all([
+        updateProfileSettings({
+          fullName: profile.fullName,
+          phone: profile.phone,
+          linkedin: profile.linkedin,
+          professionalSummary: profile.professionalSummary,
+        }),
+        updateNotificationSettings(notifications),
+      ])
+      return { savedProfile, savedNotifications }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["settings"] })
+      setSaveMessage("Changes saved successfully")
+      showToast({
+        variant: "success",
+        title: "Settings updated",
+        description: "Profile and notifications have been saved.",
+      })
+      setTimeout(() => setSaveMessage(""), 2500)
+    },
+    onError: (error: unknown) => {
+      showToast({
+        variant: "error",
+        title: "Could not save settings",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      })
+    },
   })
 
   const checkoutMutation = useMutation({
@@ -131,6 +168,7 @@ export default function SettingsPage() {
     const txRef = url.searchParams.get("tx_ref")
     const orderId = url.searchParams.get("order_id")
     const status = url.searchParams.get("billing")
+
     if (status === "cancelled") {
       showToast({
         variant: "info",
@@ -139,8 +177,8 @@ export default function SettingsPage() {
       })
       return
     }
-    if (!transactionId || !orderId) return
-    if (confirmMutation.isPending) return
+
+    if (!transactionId || !orderId || confirmMutation.isPending) return
     confirmMutation.mutate({ orderId, transactionId, txRef: txRef ?? undefined })
     url.searchParams.delete("transaction_id")
     url.searchParams.delete("tx_ref")
@@ -149,35 +187,18 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleProfileChange = (field: keyof ProfileData, value: string) => {
-    setProfile((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+  const handleProfileChange = (
+    field: keyof UserProfileSettings,
+    value: string
+  ) => {
+    setProfile((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleNotificationChange = (
-    field: keyof NotificationPreferences,
+    field: keyof UserNotificationSettings,
     value: boolean
   ) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  const handleSaveChanges = async () => {
-    setIsSaving(true)
-    setSaveMessage("")
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    setIsSaving(false)
-    setSaveMessage("Changes saved successfully!")
-
-    // Clear message after 3 seconds
-    setTimeout(() => setSaveMessage(""), 3000)
+    setNotifications((prev) => ({ ...prev, [field]: value }))
   }
 
   const tabs = [
@@ -189,7 +210,6 @@ export default function SettingsPage() {
   return (
     <AuthenticatedDashboardLayout>
       <div className="space-y-6 p-6">
-        {/* Header */}
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -197,13 +217,12 @@ export default function SettingsPage() {
               Manage your profile and application preferences
             </p>
           </div>
-          <Button onClick={handleSaveChanges} disabled={isSaving}>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
             <Save className="mr-2 h-4 w-4" />
-            {isSaving ? "Saving..." : "Save Changes"}
+            {saveMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
 
-        {/* Save Message */}
         {saveMessage && (
           <div className="flex items-center space-x-2 rounded-lg border border-green-200 bg-green-50 p-3">
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -211,7 +230,6 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Tabs */}
         <div className="border-b">
           <nav className="flex space-x-8">
             {tabs.map((tab) => (
@@ -231,23 +249,17 @@ export default function SettingsPage() {
           </nav>
         </div>
 
-        {/* Profile Tab */}
         {activeTab === "profile" && (
           <div className="space-y-6">
             <div className="rounded-lg border bg-card p-6">
-              <h2 className="mb-6 text-lg font-semibold">
-                Personal Information
-              </h2>
-
+              <h2 className="mb-6 text-lg font-semibold">Personal Information</h2>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
-                    value={profile.name}
-                    onChange={(e) =>
-                      handleProfileChange("name", e.target.value)
-                    }
+                    value={profile.fullName}
+                    onChange={(e) => handleProfileChange("fullName", e.target.value)}
                     placeholder="Enter your full name"
                   />
                 </div>
@@ -258,10 +270,8 @@ export default function SettingsPage() {
                     id="email"
                     type="email"
                     value={profile.email}
-                    onChange={(e) =>
-                      handleProfileChange("email", e.target.value)
-                    }
-                    placeholder="Enter your email"
+                    disabled
+                    className="cursor-not-allowed opacity-70"
                   />
                 </div>
 
@@ -270,9 +280,7 @@ export default function SettingsPage() {
                   <Input
                     id="phone"
                     value={profile.phone}
-                    onChange={(e) =>
-                      handleProfileChange("phone", e.target.value)
-                    }
+                    onChange={(e) => handleProfileChange("phone", e.target.value)}
                     placeholder="Enter your phone number"
                   />
                 </div>
@@ -282,9 +290,7 @@ export default function SettingsPage() {
                   <Input
                     id="linkedin"
                     value={profile.linkedin}
-                    onChange={(e) =>
-                      handleProfileChange("linkedin", e.target.value)
-                    }
+                    onChange={(e) => handleProfileChange("linkedin", e.target.value)}
                     placeholder="https://linkedin.com/in/yourprofile"
                   />
                 </div>
@@ -292,209 +298,111 @@ export default function SettingsPage() {
             </div>
 
             <div className="rounded-lg border bg-card p-6">
-              <h2 className="mb-6 text-lg font-semibold">
-                Professional Summary
-              </h2>
+              <h2 className="mb-6 text-lg font-semibold">Professional Summary</h2>
               <div className="space-y-2">
                 <Label htmlFor="summary">About You</Label>
                 <textarea
                   id="summary"
                   className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
                   placeholder="Brief professional summary for your applications..."
-                  defaultValue="Experienced software developer with expertise in frontend technologies and a passion for creating user-friendly applications."
+                  value={profile.professionalSummary}
+                  onChange={(e) =>
+                    handleProfileChange("professionalSummary", e.target.value)
+                  }
                 />
               </div>
             </div>
           </div>
         )}
 
-        {/* Notifications Tab */}
         {activeTab === "notifications" && (
           <div className="space-y-6">
             <div className="rounded-lg border bg-card p-6">
-              <h2 className="mb-6 text-lg font-semibold">
-                Email Notifications
-              </h2>
-
+              <h2 className="mb-6 text-lg font-semibold">Email Notifications</h2>
               <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                      <Mail className="h-4 w-4 text-blue-600" />
+                {[
+                  {
+                    key: "emailNotifications",
+                    title: "Email Notifications",
+                    description: "Receive email updates about your applications",
+                    icon: Mail,
+                    color: "text-blue-600",
+                    bg: "bg-blue-100",
+                  },
+                  {
+                    key: "applicationUpdates",
+                    title: "Application Updates",
+                    description: "Get notified when application status changes",
+                    icon: FileText,
+                    color: "text-green-600",
+                    bg: "bg-green-100",
+                  },
+                  {
+                    key: "interviewReminders",
+                    title: "Interview Reminders",
+                    description: "Receive reminders for upcoming interviews",
+                    icon: Calendar,
+                    color: "text-purple-600",
+                    bg: "bg-purple-100",
+                  },
+                  {
+                    key: "followUpReminders",
+                    title: "Follow-up Reminders",
+                    description: "Get reminded when follow-ups are needed",
+                    icon: Bell,
+                    color: "text-orange-600",
+                    bg: "bg-orange-100",
+                  },
+                  {
+                    key: "weeklyReports",
+                    title: "Weekly Reports",
+                    description: "Receive weekly summary of your job search activity",
+                    icon: Briefcase,
+                    color: "text-indigo-600",
+                    bg: "bg-indigo-100",
+                  },
+                ].map((item) => {
+                  const Icon = item.icon
+                  const value = notifications[item.key as keyof UserNotificationSettings]
+                  return (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between rounded-lg border p-4"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg}`}>
+                          <Icon className={`h-4 w-4 ${item.color}`} />
+                        </div>
+                        <div>
+                          <p className="font-medium">{item.title}</p>
+                          <p className="text-sm text-muted-foreground">{item.description}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() =>
+                          handleNotificationChange(
+                            item.key as keyof UserNotificationSettings,
+                            !value
+                          )
+                        }
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          value ? "bg-primary" : "bg-muted"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            value ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
                     </div>
-                    <div>
-                      <p className="font-medium">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive email updates about your applications
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handleNotificationChange(
-                        "emailNotifications",
-                        !notifications.emailNotifications
-                      )
-                    }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.emailNotifications
-                        ? "bg-primary"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        notifications.emailNotifications
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
-                      <FileText className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Application Updates</p>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified when application status changes
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handleNotificationChange(
-                        "applicationUpdates",
-                        !notifications.applicationUpdates
-                      )
-                    }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.applicationUpdates
-                        ? "bg-primary"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        notifications.applicationUpdates
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
-                      <Calendar className="h-4 w-4 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Interview Reminders</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive reminders for upcoming interviews
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handleNotificationChange(
-                        "interviewReminders",
-                        !notifications.interviewReminders
-                      )
-                    }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.interviewReminders
-                        ? "bg-primary"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        notifications.interviewReminders
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100">
-                      <Bell className="h-4 w-4 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Follow-up Reminders</p>
-                      <p className="text-sm text-muted-foreground">
-                        Get reminded when follow-ups are needed
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handleNotificationChange(
-                        "followUpReminders",
-                        !notifications.followUpReminders
-                      )
-                    }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.followUpReminders
-                        ? "bg-primary"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        notifications.followUpReminders
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
-                      <Briefcase className="h-4 w-4 text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Weekly Reports</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive weekly summary of your job search activity
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handleNotificationChange(
-                        "weeklyReports",
-                        !notifications.weeklyReports
-                      )
-                    }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.weeklyReports ? "bg-primary" : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        notifications.weeklyReports
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
+                  )
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {/* Account Tab */}
         {activeTab === "account" && (
           <div className="space-y-6">
             <div className="rounded-lg border bg-card p-6">
@@ -503,32 +411,14 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>
-                    <p className="font-medium">Change Password</p>
+                    <p className="font-medium">Forgot Password</p>
                     <p className="text-sm text-muted-foreground">
-                      Update your account password
+                      Request a password reset link by email
                     </p>
                   </div>
-                  <Button variant="outline">Change Password</Button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div>
-                    <p className="font-medium">Two-Factor Authentication</p>
-                    <p className="text-sm text-muted-foreground">
-                      Add an extra layer of security to your account
-                    </p>
-                  </div>
-                  <Button variant="outline">Enable 2FA</Button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div>
-                    <p className="font-medium">Delete Account</p>
-                    <p className="text-sm text-muted-foreground">
-                      Permanently delete your account and all data
-                    </p>
-                  </div>
-                  <Button variant="destructive">Delete Account</Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/auth/forgot-password">Reset Password</Link>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -565,69 +455,28 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
-                <div className="w-full md:max-w-[240px]">
-                  <Label htmlFor="purchaseUsd">Purchase Amount (USD)</Label>
+              <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-end">
+                <div className="w-full md:w-64">
+                  <Label htmlFor="purchase">Buy credits (USD)</Label>
                   <Input
-                    id="purchaseUsd"
+                    id="purchase"
                     type="number"
                     min={1}
                     step={1}
                     value={purchaseUsd}
                     onChange={(event) => setPurchaseUsd(event.target.value)}
-                    placeholder="10"
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Minimum purchase is $1
-                  </p>
                 </div>
                 <Button
                   onClick={() => checkoutMutation.mutate()}
                   disabled={checkoutMutation.isPending}
                 >
-                  {checkoutMutation.isPending ? "Starting checkout..." : "Buy Credits"}
+                  {checkoutMutation.isPending ? "Redirecting..." : "Checkout"}
                 </Button>
               </div>
             </div>
           </div>
         )}
-
-        {/* Quick Actions */}
-        <div className="rounded-lg border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold">Quick Actions</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Button
-              variant="outline"
-              className="flex h-auto items-center justify-start p-4"
-              asChild
-            >
-              <a href="/dashboard/cv">
-                <FileText className="mr-3 h-5 w-5" />
-                <div className="text-left">
-                  <p className="font-medium">Manage CVs</p>
-                  <p className="text-xs text-muted-foreground">
-                    Update your CV documents
-                  </p>
-                </div>
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              className="flex h-auto items-center justify-start p-4"
-              asChild
-            >
-              <a href="/dashboard/applications">
-                <Briefcase className="mr-3 h-5 w-5" />
-                <div className="text-left">
-                  <p className="font-medium">View Applications</p>
-                  <p className="text-xs text-muted-foreground">
-                    Track your job applications
-                  </p>
-                </div>
-              </a>
-            </Button>
-          </div>
-        </div>
       </div>
     </AuthenticatedDashboardLayout>
   )

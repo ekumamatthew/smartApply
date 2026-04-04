@@ -116,6 +116,22 @@ export type OptimizeCvPayload = {
   clientLocation?: string
 }
 
+export type UserProfileSettings = {
+  fullName: string
+  email: string
+  phone: string
+  linkedin: string
+  professionalSummary: string
+}
+
+export type UserNotificationSettings = {
+  emailNotifications: boolean
+  applicationUpdates: boolean
+  interviewReminders: boolean
+  followUpReminders: boolean
+  weeklyReports: boolean
+}
+
 export async function fetchEmailThreads(): Promise<EmailThreadSummary[]> {
   const response = await api.get("/api/email/threads")
   return response.data.threads || []
@@ -196,4 +212,26 @@ export async function fetchCvOptimizationHistory(
 ): Promise<CvOptimizationHistoryItem[]> {
   const response = await api.get(`/api/cv/${cvId}/optimizations`)
   return response.data.history || []
+}
+
+export async function fetchSettings(): Promise<{
+  profile: UserProfileSettings
+  notifications: UserNotificationSettings
+}> {
+  const response = await api.get("/api/settings")
+  return response.data
+}
+
+export async function updateProfileSettings(
+  payload: Partial<Omit<UserProfileSettings, "email">>
+): Promise<UserProfileSettings> {
+  const response = await api.patch("/api/settings/profile", payload)
+  return response.data.profile
+}
+
+export async function updateNotificationSettings(
+  payload: Partial<UserNotificationSettings>
+): Promise<UserNotificationSettings> {
+  const response = await api.patch("/api/settings/notifications", payload)
+  return response.data.notifications
 }

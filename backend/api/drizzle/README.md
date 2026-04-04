@@ -11,6 +11,7 @@ This folder contains SQL migrations for the backend API.
 - `0005_cv_optimization_templates.sql`
 - `0006_cv_structured_json.sql`
 - `0007_billing_credits.sql`
+- `0008_user_settings_and_waitlist.sql`
 
 ## Run a migration
 
@@ -32,6 +33,7 @@ psql "$DATABASE_URL" -f drizzle/0004_ai_usage_daily.sql
 psql "$DATABASE_URL" -f drizzle/0005_cv_optimization_templates.sql
 psql "$DATABASE_URL" -f drizzle/0006_cv_structured_json.sql
 psql "$DATABASE_URL" -f drizzle/0007_billing_credits.sql
+psql "$DATABASE_URL" -f drizzle/0008_user_settings_and_waitlist.sql
 ```
 
 ## Verify tables were created

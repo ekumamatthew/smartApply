@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { dbPool } from '../lib/db';
+import { sendTemplateEmail } from '../lib/transactional-email';
 
 type UsageType = 'parse' | 'generate';
 
@@ -14,7 +15,9 @@ export class BillingService {
   private readonly minPurchaseUsdCents = Number(
     process.env.MIN_PURCHASE_USD_CENTS ?? 100,
   );
-  private readonly parseCreditCost = Number(process.env.CREDIT_COST_PARSE ?? 25);
+  private readonly parseCreditCost = Number(
+    process.env.CREDIT_COST_PARSE ?? 25,
+  );
   private readonly generateCreditCost = Number(
     process.env.CREDIT_COST_GENERATE ?? 40,
   );
@@ -63,14 +66,22 @@ export class BillingService {
     const cost =
       usageType === 'parse' ? this.parseCreditCost : this.generateCreditCost;
     const reason =
-      usageType === 'parse' ? 'CV optimization usage' : 'Email generation usage';
+      usageType === 'parse'
+        ? 'CV optimization usage'
+        : 'Email generation usage';
 
     return this.consumeCredits(userId, cost, reason, { usageType });
   }
 
-  async createCheckoutSession(input: { userId: string; amountUsdCents: number }) {
+  async createCheckoutSession(input: {
+    userId: string;
+    amountUsdCents: number;
+  }) {
     const amountUsdCents = Math.floor(input.amountUsdCents);
-    if (!Number.isFinite(amountUsdCents) || amountUsdCents < this.minPurchaseUsdCents) {
+    if (
+      !Number.isFinite(amountUsdCents) ||
+      amountUsdCents < this.minPurchaseUsdCents
+    ) {
       throw new BadRequestException(
         `Minimum purchase is $${(this.minPurchaseUsdCents / 100).toFixed(2)}`,
       );
@@ -238,13 +249,18 @@ export class BillingService {
         }
       | undefined;
 
-    if (!verifyResponse.ok || verified?.status !== 'success' || !verified?.data) {
+    if (
+      !verifyResponse.ok ||
+      verified?.status !== 'success' ||
+      !verified?.data
+    ) {
       throw new BadRequestException(
         verified?.message || 'Unable to verify Flutterwave payment',
       );
     }
 
-    const expectedTxRef = order.providerSessionId || `smartapply_${input.orderId}`;
+    const expectedTxRef =
+      order.providerSessionId || `smartapply_${input.orderId}`;
     if (verified.data.tx_ref !== expectedTxRef) {
       throw new BadRequestException('Payment reference mismatch');
     }
@@ -266,6 +282,13 @@ export class BillingService {
       credits: order.credits,
       sessionId: expectedTxRef,
       paymentId: String(verified.data.id ?? input.transactionId),
+    });
+
+    const user = await this.getUserBasic(input.userId);
+    await sendTemplateEmail({
+      kind: 'payment-success',
+      user,
+      credits: order.credits,
     });
 
     return { success: true, status: 'paid', credited: order.credits };
@@ -297,7 +320,8 @@ export class BillingService {
     const txRef = event?.data?.tx_ref?.trim();
     const transactionIdRaw = event?.data?.id;
     const transactionId =
-      typeof transactionIdRaw === 'number' || typeof transactionIdRaw === 'string'
+      typeof transactionIdRaw === 'number' ||
+      typeof transactionIdRaw === 'string'
         ? String(transactionIdRaw)
         : null;
     const status = event?.data?.status;
@@ -359,7 +383,9 @@ export class BillingService {
         [input.orderId],
       );
 
-      const row = lockOrder.rows[0] as { creditedAt: string | Date | null } | undefined;
+      const row = lockOrder.rows[0] as
+        | { creditedAt: string | Date | null }
+        | undefined;
       if (!row) {
         throw new BadRequestException('Credit order not found');
       }
@@ -368,10 +394,17 @@ export class BillingService {
         return;
       }
 
-      const balanceBefore = await this.getCreditBalanceInternal(client, input.userId);
+      const balanceBefore = await this.getCreditBalanceInternal(
+        client,
+        input.userId,
+      );
       const balanceAfter = balanceBefore + input.credits;
 
-      await this.upsertCreditBalanceInternal(client, input.userId, balanceAfter);
+      await this.upsertCreditBalanceInternal(
+        client,
+        input.userId,
+        balanceAfter,
+      );
       await client.query(
         `
         INSERT INTO credit_ledger (
@@ -450,14 +483,7 @@ export class BillingService {
           $1, $2, 'usage', $3, $4, $5, $6::jsonb, NOW()
         )
         `,
-        [
-          randomUUID(),
-          userId,
-          -cost,
-          next,
-          reason,
-          JSON.stringify(meta),
-        ],
+        [randomUUID(), userId, -cost, next, reason, JSON.stringify(meta)],
       );
 
       await client.query('COMMIT');
@@ -496,9 +522,11 @@ export class BillingService {
       [userId],
     );
 
-    return (result.rows[0] as
-      | { parseCvCount: number; generateEmailCount: number }
-      | undefined) ?? { parseCvCount: 0, generateEmailCount: 0 };
+    return (
+      (result.rows[0] as
+        | { parseCvCount: number; generateEmailCount: number }
+        | undefined) ?? { parseCvCount: 0, generateEmailCount: 0 }
+    );
   }
 
   private async getCreditBalanceInternal(
@@ -547,6 +575,32 @@ export class BillingService {
     const row = result.rows[0] as { email?: string } | undefined;
     const email = row?.email?.trim();
     return email || null;
+  }
+
+  private async getUserBasic(userId: string): Promise<{
+    id: string;
+    email: string | null;
+    name: string | null;
+  }> {
+    const result = await dbPool.query(
+      `
+      SELECT id, email, name
+      FROM "user"
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [userId],
+    );
+
+    const row = result.rows[0] as
+      | { id: string; email?: string | null; name?: string | null }
+      | undefined;
+
+    return {
+      id: row?.id || userId,
+      email: row?.email?.trim() || null,
+      name: row?.name?.trim() || null,
+    };
   }
 
   private getEnv(key: string): string | null {

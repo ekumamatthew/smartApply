@@ -1,4 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { type Request } from 'express';
 import { BillingService } from './billing.service';
 import { Public } from '../common/decorators/public.decorator';
@@ -26,7 +33,10 @@ export class BillingController {
   ) {
     const userId = this.getUserId(req);
     const amountUsdCents = this.resolveAmountUsdCents(body);
-    return this.billingService.createCheckoutSession({ userId, amountUsdCents });
+    return this.billingService.createCheckoutSession({
+      userId,
+      amountUsdCents,
+    });
   }
 
   @Post('checkout/confirm')
@@ -40,9 +50,7 @@ export class BillingController {
     const txRef = body.txRef?.trim();
 
     if (!orderId || !transactionId) {
-      throw new BadRequestException(
-        'orderId and transactionId are required',
-      );
+      throw new BadRequestException('orderId and transactionId are required');
     }
 
     return this.billingService.confirmCheckoutPayment({
@@ -55,10 +63,7 @@ export class BillingController {
 
   @Public()
   @Post('webhook/flutterwave')
-  async flutterwaveWebhook(
-    @Req() req: Request,
-    @Body() body: unknown,
-  ) {
+  async flutterwaveWebhook(@Req() req: Request, @Body() body: unknown) {
     const signature = req.header('verif-hash') || undefined;
     const result = await this.billingService.handleFlutterwaveWebhook({
       signature,
@@ -75,7 +80,10 @@ export class BillingController {
     return userId;
   }
 
-  private resolveAmountUsdCents(body: { amountUsd?: number; amountUsdCents?: number }) {
+  private resolveAmountUsdCents(body: {
+    amountUsd?: number;
+    amountUsdCents?: number;
+  }) {
     if (Number.isFinite(body.amountUsdCents)) {
       return Math.floor(Number(body.amountUsdCents));
     }

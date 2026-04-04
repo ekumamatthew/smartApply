@@ -91,6 +91,14 @@ async function isAppliedBySchema(client, tag) {
     );
   }
 
+  if (tag === '0008_user_settings_and_waitlist') {
+    return (
+      (await tableExists(client, 'user_profiles')) &&
+      (await tableExists(client, 'user_notification_settings')) &&
+      (await tableExists(client, 'waitlist_subscribers'))
+    );
+  }
+
   return false;
 }
 
@@ -130,6 +138,7 @@ function getMigrationOrder() {
     '0005_cv_optimization_templates',
     '0006_cv_structured_json',
     '0007_billing_credits',
+    '0008_user_settings_and_waitlist',
   ];
 }
 

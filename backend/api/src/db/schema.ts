@@ -198,3 +198,40 @@ export const creditOrder = pgTable('credit_orders', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
+
+// ----- User Profile -----
+export const userProfile = pgTable('user_profiles', {
+  userId: text('userId')
+    .notNull()
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  phone: text('phone'),
+  linkedin: text('linkedin'),
+  professionalSummary: text('professionalSummary'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- User Notification Settings -----
+export const userNotificationSettings = pgTable('user_notification_settings', {
+  userId: text('userId')
+    .notNull()
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  emailNotifications: boolean('emailNotifications').notNull().default(true),
+  applicationUpdates: boolean('applicationUpdates').notNull().default(true),
+  interviewReminders: boolean('interviewReminders').notNull().default(true),
+  followUpReminders: boolean('followUpReminders').notNull().default(false),
+  weeklyReports: boolean('weeklyReports').notNull().default(false),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+// ----- Waitlist Subscribers -----
+export const waitlistSubscriber = pgTable('waitlist_subscribers', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  name: text('name'),
+  source: text('source').notNull().default('web'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
