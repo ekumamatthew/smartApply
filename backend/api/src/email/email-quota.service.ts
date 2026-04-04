@@ -91,20 +91,6 @@ export class EmailQuotaService {
       await this.consumePaidCreditOrThrow(userId, usageType);
     }
 
-    const todayRow = await dbPool.query(
-      `
-      SELECT "parseCvCount", "generateEmailCount"
-      FROM ai_usage_daily
-      WHERE "userId" = $1 AND "date" = $2::date
-      LIMIT 1
-      `,
-      [userId, date],
-    );
-
-    const current = (todayRow.rows[0] as
-      | { parseCvCount: number; generateEmailCount: number }
-      | undefined) ?? { parseCvCount: 0, generateEmailCount: 0 };
-
     const column =
       usageType === 'parse' ? '"parseCvCount"' : '"generateEmailCount"';
     await dbPool.query(

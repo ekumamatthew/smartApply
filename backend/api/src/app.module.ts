@@ -13,6 +13,8 @@ import { BillingService } from './billing/billing.service';
 import { EmailController } from './email/email.controller';
 import { EmailQuotaService } from './email/email-quota.service';
 import { EmailService } from './email/email.service';
+import { SettingsController } from './settings/settings.controller';
+import { SettingsService } from './settings/settings.service';
 
 @Module({
   controllers: [
@@ -21,6 +23,7 @@ import { EmailService } from './email/email.service';
     CvController,
     BillingController,
     MetricsController,
+    SettingsController,
   ],
   providers: [
     AppService,
@@ -29,6 +32,7 @@ import { EmailService } from './email/email.service';
     EmailQuotaService,
     CvOptimizationService,
     MetricsService,
+    SettingsService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

@@ -6,6 +6,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Chrome, Eye, EyeOff } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { useState } from "react"
 import { authClient, useSession } from "../../../src/auth/web-auth-client"
 
@@ -160,13 +161,8 @@ export default function SignInPage() {
                   Remember me
                 </Label>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-auto p-0 text-sm"
-              >
-                Forgot password?
+              <Button type="button" variant="ghost" size="sm" className="h-auto p-0 text-sm" asChild>
+                <Link href="/auth/forgot-password">Forgot password?</Link>
               </Button>
             </div>
 
