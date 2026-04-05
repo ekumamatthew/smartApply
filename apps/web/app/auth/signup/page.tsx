@@ -42,13 +42,13 @@ export default function SignUpPage() {
         email,
         password,
         name,
-        callbackURL: "/dashboard",
+        callbackURL: "https://smart-apply-web.vercel.app/dashboard",
       })
 
       if (result.error) {
         setError(result.error.message || "Registration failed")
       } else {
-        router.push("/dashboard")
+        router.push("https://smart-apply-web.vercel.app/dashboard")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
@@ -61,7 +61,7 @@ export default function SignUpPage() {
     try {
       await authClient.signIn.social({
         provider,
-        callbackURL: "/dashboard",
+        callbackURL: "https://smart-apply-web.vercel.app/dashboard",
       })
     } catch (err) {
       setError(`${provider} sign up failed`)
@@ -69,7 +69,7 @@ export default function SignUpPage() {
   }
 
   if (session) {
-    router.push("/dashboard")
+    router.push("https://smart-apply-web.vercel.app/dashboard")
     return null
   }
 

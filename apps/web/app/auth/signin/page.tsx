@@ -19,7 +19,13 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
+const allowedOrigin = "https://smart-apply-web.vercel.app"
+
+let callbackUrl = searchParams.get("callbackUrl")
+
+if (!callbackUrl || !callbackUrl.startsWith(allowedOrigin)) {
+  callbackUrl = `${allowedOrigin}/dashboard`
+}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
