@@ -3,6 +3,27 @@ import { dbPool } from './db';
 import { getAllowedOrigins } from './origins';
 import { sendTemplateEmail } from './transactional-email';
 
+function cleanEnv(value?: string): string | null {
+  if (!value) return null;
+  const cleaned = value.trim().replace(/^['"]|['"]$/g, '');
+  return cleaned || null;
+}
+
+function resolveAuthBaseUrl(): string {
+  const frontendUrl = cleanEnv(process.env.FRONTEND_URL);
+  const frontendUrlsFirst = cleanEnv(process.env.FRONTEND_URLS?.split(',')[0]);
+  const betterAuthPublic = cleanEnv(process.env.BETTER_AUTH_PUBLIC_URL);
+  const betterAuthUrl = cleanEnv(process.env.BETTER_AUTH_URL);
+
+  return (
+    betterAuthPublic ||
+    frontendUrl ||
+    frontendUrlsFirst ||
+    betterAuthUrl ||
+    'http://localhost:3000'
+  );
+}
+
 const socialProviders = {
   ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
     ? {
@@ -32,7 +53,7 @@ const socialProviders = {
 
 export const auth = betterAuth({
   database: dbPool,
-  baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
+  baseURL: resolveAuthBaseUrl(),
   basePath: '/api/auth',
   trustedOrigins: getAllowedOrigins(),
   emailAndPassword: {
