@@ -146,15 +146,16 @@ function renderTemplate(input: {
   }
 
   return {
-    subject: 'New sign-up attempt detected',
+    subject: 'New sign-in to your SmartApply account',
     html:
       `${header}<p>Hi ${safeName},</p>` +
-      '<p>Someone attempted to sign up with your email address on SmartApply. If this was you, you can ignore this message.</p>' +
-      '<p>If this was not you, we recommend resetting your password.</p>' +
+      '<p>We noticed a new sign-in to your SmartApply account.</p>' +
+      '<p>If this was you, no action is needed. If this was not you, reset your password immediately.</p>' +
       `${footer}`,
     text:
       `Hi ${name},\n\n` +
-      'Someone attempted to sign up with your email address on SmartApply. If this was you, you can ignore this message.\n\n' +
+      'We noticed a new sign-in to your SmartApply account.\n\n' +
+      'If this was you, no action is needed.\n\n' +
       `If this was not you, reset password: ${appUrl}/auth/forgot-password`,
   };
 }

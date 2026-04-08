@@ -121,6 +121,39 @@ export const auth = betterAuth({
         },
       },
     },
+    session: {
+      create: {
+        after: async (session) => {
+          const userId =
+            typeof session.userId === 'string' ? session.userId : null;
+          if (!userId) return;
+
+          const result = await dbPool.query(
+            `
+            SELECT id, email, name
+            FROM "user"
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [userId],
+          );
+
+          const user = result.rows[0] as
+            | { id?: string; email?: string; name?: string }
+            | undefined;
+          if (!user?.email) return;
+
+          await sendTemplateEmail({
+            kind: 'account-activity',
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+            },
+          });
+        },
+      },
+    },
   },
   socialProviders,
 });
