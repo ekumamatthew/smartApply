@@ -36,6 +36,10 @@ function getAppBaseUrl(): string {
   return url.replace(/\/+$/, '');
 }
 
+function isStrictEmailDelivery(): boolean {
+  return getEnv('EMAIL_DELIVERY_STRICT') === 'true';
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -166,9 +170,11 @@ export async function sendTransactionalEmail(
   const key = getEnv('RESEND_API_KEY');
   const from = getEnv('MAIL_FROM') || 'SmartApply <no-reply@smartapply.app>';
   if (!key) {
-    console.warn(
-      '[transactional-email] RESEND_API_KEY missing. Skipping send.',
-    );
+    const message = '[transactional-email] RESEND_API_KEY missing.';
+    if (isStrictEmailDelivery()) {
+      throw new Error(message);
+    }
+    console.warn(`${message} Skipping send.`);
     return;
   }
 
@@ -190,11 +196,11 @@ export async function sendTransactionalEmail(
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
-    console.error(
-      '[transactional-email] send failed',
-      response.status,
-      errText,
-    );
+    const message = `[transactional-email] send failed status=${response.status} to=${input.to} subject=${input.subject} body=${errText}`;
+    if (isStrictEmailDelivery()) {
+      throw new Error(message);
+    }
+    console.error(message);
   }
 }
 
