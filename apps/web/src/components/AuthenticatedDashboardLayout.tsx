@@ -3,7 +3,8 @@
 import { cn } from "@workspace/ui/lib/utils"
 import { usePathname, useRouter } from "next/navigation"
 import * as React from "react"
-import { useSession } from "../auth/web-auth-client"
+import { authClient, useSession } from "../auth/web-auth-client"
+import { useAppToast } from "./AppToastProvider"
 import { AuthenticatedSidebar } from "./AuthenticatedSidebar"
 
 interface AuthenticatedDashboardLayoutProps {
@@ -15,8 +16,10 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
   AuthenticatedDashboardLayoutProps
 >(({ children, className, ...props }, ref) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
+  const [isSendingVerification, setIsSendingVerification] = React.useState(false)
   const router = useRouter()
   const pathname = usePathname()
+  const { showToast } = useAppToast()
   const { data: session, isPending } = useSession()
 
   React.useEffect(() => {
@@ -35,6 +38,49 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
     )
   }
 
+  const user = session.user as { email?: string; emailVerified?: boolean }
+  const isEmailVerified = Boolean(user?.emailVerified)
+
+  const handleSendVerification = async () => {
+    const email = user?.email?.trim()
+    if (!email) {
+      showToast({
+        variant: "error",
+        title: "Email not found",
+        description: "Please sign out and sign in again.",
+      })
+      return
+    }
+
+    setIsSendingVerification(true)
+    try {
+      const callbackURL =
+        typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined
+      const result = await authClient.sendVerificationEmail({
+        email,
+        callbackURL,
+      })
+      if (result.error) {
+        throw new Error(result.error.message || "Could not send verification email")
+      }
+
+      showToast({
+        variant: "success",
+        title: "Verification email sent",
+        description: "Check your inbox for the verification link.",
+      })
+    } catch (error) {
+      showToast({
+        variant: "error",
+        title: "Unable to send verification email",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      })
+    } finally {
+      setIsSendingVerification(false)
+    }
+  }
+
   return (
     <div
       ref={ref}
@@ -51,6 +97,23 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
           isSidebarCollapsed ? "sm:ml-30 md:ml-0" : "sm:ml-64 md:ml-0"
         )}
       >
+        {!isEmailVerified ? (
+          <div className="sticky top-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 text-sm">
+              <p>
+                Your email is not verified yet. Verify your account to keep it secure.
+              </p>
+              <button
+                type="button"
+                onClick={handleSendVerification}
+                disabled={isSendingVerification}
+                className="rounded-md border border-amber-400 px-3 py-1 font-medium hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSendingVerification ? "Sending..." : "Send verification link"}
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="min-h-full w-full">{children}</div>
       </main>
     </div>
