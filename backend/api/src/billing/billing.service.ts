@@ -109,9 +109,9 @@ export class BillingService {
     const currency = this.getEnv('BILLING_CURRENCY') || 'USD';
 
     const credits = Math.floor((amountUsdCents / 100) * this.creditsPerUsd);
-    const txRef = `smartapply_${orderId}`;
+    const txRef = `swiftapplyhq_${orderId}`;
     const customerEmail =
-      (await this.getUserEmail(input.userId)) || 'customer@smartapply.app';
+      (await this.getUserEmail(input.userId)) || 'customer@swiftapplyhq.com';
 
     await dbPool.query(
       `
@@ -136,10 +136,10 @@ export class BillingService {
         payment_options: 'card,banktransfer,ussd',
         customer: {
           email: customerEmail,
-          name: 'SmartApply User',
+          name: 'SwiftApplyHQ User',
         },
         customizations: {
-          title: 'SmartApply Credits',
+          title: 'SwiftApplyHQ Credits',
           description: `${credits} credits`,
         },
         meta: {
@@ -260,7 +260,7 @@ export class BillingService {
     }
 
     const expectedTxRef =
-      order.providerSessionId || `smartapply_${input.orderId}`;
+      order.providerSessionId || `swiftapplyhq_${input.orderId}`;
     if (verified.data.tx_ref !== expectedTxRef) {
       throw new BadRequestException('Payment reference mismatch');
     }

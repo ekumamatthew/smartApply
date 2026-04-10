@@ -191,7 +191,7 @@ function Popup() {
               className="font-bold text-gray-900"
               style={{ fontWeight: "bold", color: "#111827" }}
             >
-              SmartApply
+              SwiftApplyHQ
             </span>
           </div>
           <div

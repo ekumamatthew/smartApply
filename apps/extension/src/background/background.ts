@@ -1,8 +1,8 @@
-// Background script for SmartApply extension
+// Background script for SwiftApplyHQ extension
 import { EXT_WEB_APP_URL } from "../config/env"
 import type { ExtensionRequest, ExtensionResponse } from "../types/messages"
 
-console.log("SmartApply background script loaded")
+console.log("SwiftApplyHQ background script loaded")
 
 // Extension state
 let extensionState = {

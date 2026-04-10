@@ -60,11 +60,11 @@ function renderTemplate(input: {
   const appUrl = getAppBaseUrl();
 
   const header = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111">`;
-  const footer = `<p style="margin-top:24px;color:#555">SmartApply Team<br/><a href="${appUrl}">${appUrl}</a></p></div>`;
+  const footer = `<p style="margin-top:24px;color:#555">SwiftApplyHQ Team<br/><a href="${appUrl}">${appUrl}</a></p></div>`;
 
   if (input.kind === 'signup-welcome') {
     return {
-      subject: 'Welcome to SmartApply',
+      subject: 'Welcome to SwiftApplyHQ',
       html:
         `${header}<p>Hi ${safeName},</p>` +
         '<p>Your account is ready. You can now generate tailored job emails, optimize CVs, and track applications.</p>' +
@@ -79,7 +79,7 @@ function renderTemplate(input: {
   if (input.kind === 'verify-email') {
     const actionUrl = input.actionUrl || `${appUrl}/auth/signin`;
     return {
-      subject: 'Verify your SmartApply email',
+      subject: 'Verify your SwiftApplyHQ email',
       html:
         `${header}<p>Hi ${safeName},</p>` +
         '<p>Please verify your email address to keep your account secure.</p>' +
@@ -94,7 +94,7 @@ function renderTemplate(input: {
   if (input.kind === 'password-reset') {
     const actionUrl = input.actionUrl || `${appUrl}/auth/forgot-password`;
     return {
-      subject: 'Reset your SmartApply password',
+      subject: 'Reset your SwiftApplyHQ password',
       html:
         `${header}<p>Hi ${safeName},</p>` +
         '<p>We received a request to reset your password.</p>' +
@@ -111,7 +111,7 @@ function renderTemplate(input: {
 
   if (input.kind === 'password-reset-success') {
     return {
-      subject: 'Your SmartApply password was updated',
+      subject: 'Your SwiftApplyHQ password was updated',
       html:
         `${header}<p>Hi ${safeName},</p>` +
         '<p>Your password was changed successfully.</p>' +
@@ -128,37 +128,37 @@ function renderTemplate(input: {
       subject: 'Payment successful: credits added',
       html:
         `${header}<p>Hi ${safeName},</p>` +
-        `<p>Payment received successfully. We added <strong>${credits} credits</strong> to your SmartApply wallet.</p>` +
+        `<p>Payment received successfully. We added <strong>${credits} credits</strong> to your SwiftApplyHQ wallet.</p>` +
         `<p><a href="${appUrl}/dashboard/settings">View billing settings</a></p>${footer}`,
       text:
-        `Hi ${name},\n\nPayment received successfully. We added ${credits} credits to your SmartApply wallet.\n\n` +
+        `Hi ${name},\n\nPayment received successfully. We added ${credits} credits to your SwiftApplyHQ wallet.\n\n` +
         `View billing settings: ${appUrl}/dashboard/settings`,
     };
   }
 
   if (input.kind === 'waitlist-followup') {
     return {
-      subject: 'You are on the SmartApply waitlist',
+      subject: 'You are on the SwiftApplyHQ waitlist',
       html:
         `${header}<p>Hi ${safeName},</p>` +
-        '<p>Thanks for joining the SmartApply waitlist. We will notify you about new features and early access updates.</p>' +
+        '<p>Thanks for joining the SwiftApplyHQ waitlist. We will notify you about new features and early access updates.</p>' +
         `${footer}`,
       text:
         `Hi ${name},\n\n` +
-        'Thanks for joining the SmartApply waitlist. We will notify you about new features and early access updates.',
+        'Thanks for joining the SwiftApplyHQ waitlist. We will notify you about new features and early access updates.',
     };
   }
 
   return {
-    subject: 'New sign-in to your SmartApply account',
+    subject: 'New sign-in to your SwiftApplyHQ account',
     html:
       `${header}<p>Hi ${safeName},</p>` +
-      '<p>We noticed a new sign-in to your SmartApply account.</p>' +
+      '<p>We noticed a new sign-in to your SwiftApplyHQ account.</p>' +
       '<p>If this was you, no action is needed. If this was not you, reset your password immediately.</p>' +
       `${footer}`,
     text:
       `Hi ${name},\n\n` +
-      'We noticed a new sign-in to your SmartApply account.\n\n' +
+      'We noticed a new sign-in to your SwiftApplyHQ account.\n\n' +
       'If this was you, no action is needed.\n\n' +
       `If this was not you, reset password: ${appUrl}/auth/forgot-password`,
   };
@@ -168,7 +168,8 @@ export async function sendTransactionalEmail(
   input: SendEmailInput,
 ): Promise<void> {
   const key = getEnv('RESEND_API_KEY');
-  const from = getEnv('MAIL_FROM') || 'SmartApply <no-reply@smartapply.app>';
+  const from =
+    getEnv('MAIL_FROM') || 'SwiftApplyHQ <no-reply@swiftapplyhq.com>';
   if (!key) {
     const message = '[transactional-email] RESEND_API_KEY missing.';
     if (isStrictEmailDelivery()) {
@@ -226,7 +227,7 @@ export async function sendTemplateEmail(params: {
     html: template.html,
     text: template.text,
     tags: [
-      { name: 'app', value: 'smartapply' },
+      { name: 'app', value: 'swiftapplyhq' },
       { name: 'template', value: params.kind },
     ],
   });

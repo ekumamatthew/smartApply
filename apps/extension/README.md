@@ -1,4 +1,4 @@
-# SmartApply Browser Extension
+# SwiftApplyHQ Browser Extension
 
 A Chrome extension that helps job seekers automatically extract job details and generate professional application emails using AI.
 
@@ -8,7 +8,7 @@ A Chrome extension that helps job seekers automatically extract job details and 
 - **Data Extraction**: Extracts job title, company, location, and requirements
 - **Email Generation**: AI-powered email generation for job applications
 - **Quick Actions**: Floating action button for instant access
-- **Dashboard Integration**: Seamless integration with SmartApply web dashboard
+- **Dashboard Integration**: Seamless integration with SwiftApplyHQ web dashboard
 
 ## Development
 

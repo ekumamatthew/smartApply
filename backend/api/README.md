@@ -25,7 +25,7 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## SmartApply Environment
+## SwiftApplyHQ Environment
 
 Set these in `backend/api/.env`:
 
@@ -33,14 +33,14 @@ Set these in `backend/api/.env`:
 # Existing
 DATABASE_URL=postgresql://...
 FRONTEND_URL=http://localhost:3000
-FRONTEND_URLS=https://smart-apply-web.vercel.app,https://smart-apply-<preview>.vercel.app
+FRONTEND_URLS=https://www.swiftapplyhq.com,https://smart-apply-<preview>.vercel.app
 EXTENSION_ORIGIN=chrome-extension://<extension-id>
 BETTER_AUTH_URL=http://localhost:3001
 OPENROUTER_API_KEY=...
 OPENROUTER_MODEL=nvidia/nemotron-3-super-120b-a12b:free
 
 # Durable object storage (S3/R2)
-OBJECT_STORAGE_BUCKET=smartapply-cv
+OBJECT_STORAGE_BUCKET=swiftapplyhq-cv
 OBJECT_STORAGE_REGION=auto
 OBJECT_STORAGE_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 OBJECT_STORAGE_ACCESS_KEY_ID=...
@@ -54,8 +54,8 @@ AI_MAX_GENERATE_PER_DAY=4
 
 # Billing / credits (Flutterwave)
 FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST_or_LIVE_...
-FLUTTERWAVE_REDIRECT_URL=https://smart-apply-web.vercel.app/dashboard/settings?billing=success
-FLUTTERWAVE_CANCEL_URL=https://smart-apply-web.vercel.app/dashboard/settings?billing=cancelled
+FLUTTERWAVE_REDIRECT_URL=https://www.swiftapplyhq.com/dashboard/settings?billing=success
+FLUTTERWAVE_CANCEL_URL=https://www.swiftapplyhq.com/dashboard/settings?billing=cancelled
 # Optional but recommended for webhook verification:
 FLUTTERWAVE_WEBHOOK_HASH=your_flutterwave_webhook_hash
 BILLING_CURRENCY=USD

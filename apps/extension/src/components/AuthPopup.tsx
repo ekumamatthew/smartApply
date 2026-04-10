@@ -68,7 +68,7 @@ export default function AuthPopup() {
       <div className="p-6 max-w-md mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">SmartApply</h2>
+            <h2 className="text-xl font-bold text-gray-800">SwiftApplyHQ</h2>
             <button
               onClick={handleSignOut}
               className="text-sm text-red-600 hover:text-red-800"

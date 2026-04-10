@@ -864,7 +864,7 @@ export default function CVManagementPage() {
         {showOptimizeProgressModal ? (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
             <div className="w-[92%] max-w-md rounded-2xl border bg-background/95 p-6 shadow-2xl">
-              <p className="text-sm font-medium text-muted-foreground">SmartApply Progress</p>
+              <p className="text-sm font-medium text-muted-foreground">SwiftApplyHQ Progress</p>
               <h3 className="mt-1 text-lg font-semibold">
                 Stay patient as we {optimizeActivity}...
               </h3>

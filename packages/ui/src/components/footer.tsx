@@ -24,7 +24,7 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
                 <div className="flex h-8 w-8 items-center justify-center rounded bg-primary font-bold text-primary-foreground">
                   SA
                 </div>
-                <span className="text-xl font-bold">SmartApply</span>
+                <span className="text-xl font-bold">SwiftApplyHQ</span>
               </div>
               <p className="mb-4 max-w-md text-muted-foreground">
                 The intelligent job application platform that helps you land
@@ -133,7 +133,7 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
           {/* Bottom Bar */}
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t pt-8 md:flex-row md:gap-0">
             <p className="text-sm text-muted-foreground">
-              © 2024 SmartApply. All rights reserved.
+              © 2024 SwiftApplyHQ. All rights reserved.
             </p>
             <div className="flex flex-col items-center gap-6 md:flex-row md:gap-6">
               <a

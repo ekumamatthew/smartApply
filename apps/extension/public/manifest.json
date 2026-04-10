@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SmartApply - AI Job Assistant",
+  "name": "SwiftApplyHQ - AI Job Assistant",
   "version": "1.0.0",
   "description": "Automatically extract job details and generate professional application emails with AI",
 
@@ -12,7 +12,7 @@
     "https://*.glassdoor.com/*",
     "https://*.monster.com/*",
     "https://*.ziprecruiter.com/*",
-    "https://smart-apply-web.vercel.app/*"
+    "https://www.swiftapplyhq.com/*"
   ],
 
   "background": {
@@ -36,7 +36,7 @@
 
   "action": {
     "default_popup": "src/popup/index.html",
-    "default_title": "SmartApply",
+    "default_title": "SwiftApplyHQ",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -61,17 +61,17 @@
         "https://*.glassdoor.com/*",
         "https://*.monster.com/*",
         "https://*.ziprecruiter.com/*",
-        "https://smart-apply-web.vercel.app/*"
+        "https://www.swiftapplyhq.com/*"
       ]
     }
   ],
 
   "externally_connectable": {
-    "matches": ["https://smart-apply-web.vercel.app/*"]
+    "matches": ["https://www.swiftapplyhq.com/*"]
   },
 
-  "author": "SmartApply Team",
-  "homepage_url": "https://smart-apply-web.vercel.app",
+  "author": "SwiftApplyHQ Team",
+  "homepage_url": "https://www.swiftapplyhq.com",
 
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"

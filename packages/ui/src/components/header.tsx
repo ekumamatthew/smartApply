@@ -23,7 +23,7 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
                 SA
               </div>
-              <span className="text-xl font-bold">SmartApply</span>
+              <span className="text-xl font-bold">SwiftApplyHQ</span>
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 // AI-powered job detection for any website
 import type { ExtensionRequest } from "../types/messages"
 
-console.log("SmartApply AI job detector loaded")
+console.log("SwiftApplyHQ AI job detector loaded")
 
 // Job-related keywords and patterns
 const JOB_KEYWORDS = {
@@ -806,7 +806,7 @@ function addFloatingButton() {
       font-weight: 600;
       transition: all 0.2s ease;
     ">
-      ${aiIndicator} SmartApply
+      ${aiIndicator} SwiftApplyHQ
     </div>
   `
 

@@ -233,10 +233,10 @@ Best regards,
               <Sparkles className="mr-2 h-4 w-4" />
               Ready for more advanced features?
               <a
-                href="/signup"
+                href="/auth/signup"
                 className="ml-2 font-medium underline hover:text-primary/80"
               >
-                Sign up for SmartApply
+                Sign up for SwiftApplyHQ
               </a>
             </div>
           </div>

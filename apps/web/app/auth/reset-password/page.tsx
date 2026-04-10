@@ -74,7 +74,7 @@ export default function ResetPasswordPage() {
           <div className="space-y-2 text-center">
             <h1 className="text-2xl font-bold">Reset password</h1>
             <p className="text-sm text-muted-foreground">
-              Create a new password for your SmartApply account.
+              Create a new password for your SwiftApplyHQ account.
             </p>
           </div>
 
