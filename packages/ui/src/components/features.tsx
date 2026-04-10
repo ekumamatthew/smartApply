@@ -155,11 +155,11 @@ const Features = React.forwardRef<HTMLDivElement, FeaturesProps>(
                   </h3>
                   <p className="mx-auto mb-6 max-w-2xl text-muted-foreground">
                     Join thousands of job seekers who have landed their dream
-                    jobs with SmartApply.
+                    jobs with SwiftApplyHQ.
                   </p>
                   <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:items-center sm:gap-8">
                     <a
-                      href="/signup"
+                      href="/auth/signup"
                       className="bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-3xl font-bold text-transparent transition-all duration-300 hover:from-green-700 hover:to-blue-700"
                     >
                       Start Free

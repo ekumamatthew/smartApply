@@ -1,7 +1,7 @@
 {
   "name": "smartapply-extension",
   "version": "1.0.0",
-  "description": "SmartApply Browser Extension - AI Job Application Assistant",
+  "description": "SwiftApplyHQ Browser Extension - AI Job Application Assistant",
   "private": true,
   "type": "module",
   "main": "dist/background.js",

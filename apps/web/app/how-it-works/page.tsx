@@ -26,7 +26,7 @@ export default function HowItWorksPage() {
           <div className="mb-16 text-center">
             <div className="mb-6 inline-flex items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary backdrop-blur-sm">
               <Zap className="mr-2 h-4 w-4" />
-              How SmartApply Works
+              How SwiftApplyHQ Works
             </div>
             <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
               Land Your Dream Job in
@@ -147,7 +147,7 @@ export default function HowItWorksPage() {
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
               asChild
             >
-              <a href="/signup">
+              <a href="/auth/signup">
                 Start Your Journey
               </a>
             </Button>

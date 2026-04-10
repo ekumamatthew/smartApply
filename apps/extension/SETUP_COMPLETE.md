@@ -1,4 +1,4 @@
-# SmartApply Extension Setup Complete ✅
+# SwiftApplyHQ Extension Setup Complete ✅
 
 ## ✅ Browser Extension Successfully Configured
 
@@ -41,7 +41,7 @@ apps/extension/
 
 **📧 Email Generation:**
 - AI-powered email generation
-- Integration with SmartApply API
+- Integration with SwiftApplyHQ API
 - Local storage for extracted jobs
 
 **🎨 User Interface:**
@@ -80,7 +80,7 @@ apps/extension/
 1. **Create Extension Icons:** Add 16x16, 32x32, 48x48, 128x128 PNG icons
 2. **Test in Browser:** Load unpacked extension in Chrome Dev Mode
 3. **Debug Content Script:** Test job detection on actual job sites
-4. **API Integration:** Connect to SmartApply backend
+4. **API Integration:** Connect to SwiftApplyHQ backend
 5. **Publish:** Prepare for Chrome Web Store submission
 
 ### 🔧 **Installation Instructions:**

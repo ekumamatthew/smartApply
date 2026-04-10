@@ -19,13 +19,10 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-const allowedOrigin = "https://www.swiftapplyhq.com"
-
-let callbackUrl = searchParams.get("callbackUrl")
-
-if (!callbackUrl || !callbackUrl.startsWith(allowedOrigin)) {
-  callbackUrl = `${allowedOrigin}/dashboard`
-}
+  let callbackUrl = searchParams.get("callbackUrl")
+  if (!callbackUrl || callbackUrl.startsWith("http")) {
+    callbackUrl = "/dashboard"
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,7 +73,7 @@ if (!callbackUrl || !callbackUrl.startsWith(allowedOrigin)) {
           <div className="text-center">
             <h1 className="text-2xl font-bold">Welcome back</h1>
             <p className="mt-2 text-muted-foreground">
-              Sign in to your SmartApply account
+              Sign in to your SwiftApplyHQ account
             </p>
           </div>
 

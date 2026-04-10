@@ -30,7 +30,7 @@ export default function PricingPage() {
             <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
               Choose Your Perfect
               <span className="block bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                SmartApply Plan
+                SwiftApplyHQ Plan
               </span>
             </h2>
             <p className="mx-auto max-w-2xl text-xl text-muted-foreground backdrop-blur-sm bg-background/20 p-4 rounded-lg">
@@ -227,7 +227,7 @@ export default function PricingPage() {
             <div className="inline-flex items-center justify-center rounded-full border border-primary/20 bg-primary/5 px-6 py-3 text-sm text-primary backdrop-blur-sm">
               <Users className="mr-2 h-4 w-4" />
               Ready to get started?
-              <a href="/signup" className="ml-2 font-medium underline hover:text-primary/80">
+              <a href="/auth/signup" className="ml-2 font-medium underline hover:text-primary/80">
                 Create your account
               </a>
             </div>

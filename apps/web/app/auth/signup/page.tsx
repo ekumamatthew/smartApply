@@ -42,13 +42,13 @@ export default function SignUpPage() {
         email,
         password,
         name,
-        callbackURL: "https://www.swiftapplyhq.com/dashboard",
+        callbackURL: "/dashboard",
       })
 
       if (result.error) {
         setError(result.error.message || "Registration failed")
       } else {
-        router.push("https://www.swiftapplyhq.com/dashboard")
+        router.push("/dashboard")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
@@ -61,7 +61,7 @@ export default function SignUpPage() {
     try {
       await authClient.signIn.social({
         provider,
-        callbackURL: "https://www.swiftapplyhq.com/dashboard",
+        callbackURL: "/dashboard",
       })
     } catch (err) {
       setError(`${provider} sign up failed`)
@@ -69,7 +69,7 @@ export default function SignUpPage() {
   }
 
   if (session) {
-    router.push("https://www.swiftapplyhq.com/dashboard")
+    router.push("/dashboard")
     return null
   }
 

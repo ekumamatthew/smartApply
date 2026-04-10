@@ -49,7 +49,7 @@ const Hero = React.forwardRef<HTMLDivElement, HeroProps>(
 
             {/* Subheadline */}
             <p className="mx-auto mb-8 max-w-2xl rounded-lg border border-border/20 bg-background/30 p-4 text-xl leading-relaxed text-foreground/90 backdrop-blur-sm">
-              SmartApply automates your job search with intelligent CV
+              SwiftApplyHQ automates your job search with intelligent CV
               tailoring, personalized cover letters, and application tracking.
               Stop spending hours on repetitive tasks and start landing more
               interviews.
@@ -62,7 +62,7 @@ const Hero = React.forwardRef<HTMLDivElement, HeroProps>(
                 className="border border-white/20 bg-gradient-to-r from-green-600 to-blue-600 px-8 py-3 text-base text-white backdrop-blur-sm hover:from-green-700 hover:to-blue-700"
                 asChild
               >
-                <a href="/signup">
+                <a href="/auth/signup">
                   Start Free Trial
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
