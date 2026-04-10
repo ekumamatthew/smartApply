@@ -19,7 +19,7 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-const allowedOrigin = "https://smart-apply-web.vercel.app"
+const allowedOrigin = "https://www.swiftapplyhq.com"
 
 let callbackUrl = searchParams.get("callbackUrl")
 
