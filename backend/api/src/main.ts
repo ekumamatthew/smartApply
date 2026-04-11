@@ -9,8 +9,8 @@ import { auth } from './lib/auth';
 import { getAllowedOrigins, isAllowedOrigin } from './lib/origins';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
+  // const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.use((req: Request, res: Response, next: NextFunction) => {
     const requestId = req.header('x-request-id') || randomUUID();
     (req as Request & { requestId?: string }).requestId = requestId;

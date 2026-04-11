@@ -22,10 +22,9 @@ function readEnvFileValue(key) {
 }
 
 async function tableExists(client, tableName) {
-  const result = await client.query(
-    `SELECT to_regclass($1) AS reg`,
-    [`public.${tableName}`],
-  );
+  const result = await client.query(`SELECT to_regclass($1) AS reg`, [
+    `public.${tableName}`,
+  ]);
   return Boolean(result.rows[0]?.reg);
 }
 

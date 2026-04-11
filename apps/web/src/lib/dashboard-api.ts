@@ -187,9 +187,7 @@ export async function fetchCvTemplates(): Promise<CvTemplate[]> {
   return response.data.templates || []
 }
 
-export async function optimizeCv(
-  payload: OptimizeCvPayload
-): Promise<{
+export async function optimizeCv(payload: OptimizeCvPayload): Promise<{
   optimizationId: string
   cvId: string
   cvFileName: string

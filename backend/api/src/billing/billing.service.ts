@@ -3,11 +3,19 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { dbPool } from '../lib/db';
 import { sendTemplateEmail } from '../lib/transactional-email';
 
 type UsageType = 'parse' | 'generate';
+
+// Supported currencies and their payment options
+const CURRENCY_PAYMENT_OPTIONS: Record<string, string> = {
+  USD: 'card',
+  NGN: 'card,banktransfer,ussd',
+  KES: 'card,mpesa',
+  GHS: 'card,mobilemoneyghana',
+};
 
 @Injectable()
 export class BillingService {
@@ -32,6 +40,80 @@ export class BillingService {
       4,
   );
 
+  // ─── NEW: Get live exchange rate from Flutterwave ───────────────────────────
+  // source_currency = local currency, destination_currency = USD, amount = USD amount
+  // The API returns source.amount = how much local currency is needed for that USD amount
+  async getConvertedAmount(
+    amountUsd: number,
+    toCurrency: string,
+  ): Promise<{ localAmount: number; rate: number }> {
+    if (toCurrency === 'USD') {
+      return { localAmount: amountUsd, rate: 1 };
+    }
+
+    const flutterwaveSecretKey = this.getEnv('FLW_SECRET_KEY');
+    if (!flutterwaveSecretKey) {
+      throw new InternalServerErrorException('Missing FLW_SECRET_KEY');
+    }
+
+    const url = new URL('https://api.flutterwave.com/v3/transfers/rates');
+    url.searchParams.set('amount', String(amountUsd));
+    url.searchParams.set('destination_currency', 'USD');
+    url.searchParams.set('source_currency', toCurrency);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${flutterwaveSecretKey}`,
+      },
+    });
+
+    const body = (await response.json()) as
+      | {
+          status?: string;
+          message?: string;
+          data?: {
+            rate?: number;
+            source?: { currency: string; amount: number };
+            destination?: { currency: string; amount: number };
+          };
+        }
+      | undefined;
+
+    if (!response.ok || body?.status !== 'success' || !body?.data) {
+      throw new InternalServerErrorException(
+        body?.message || 'Unable to fetch exchange rate from Flutterwave',
+      );
+    }
+
+    const localAmount = body.data.source?.amount ?? amountUsd;
+    const rate = body.data.rate ?? 1;
+
+    return {
+      localAmount: Math.round(localAmount * 100) / 100, // round to 2 dp
+      rate,
+    };
+  }
+
+  // ─── NEW: Expose rates for frontend preview ─────────────────────────────────
+  async getRates(
+    amountUsdCents: number,
+    currency: string,
+  ): Promise<{
+    usd: number;
+    currency: string;
+    localAmount: number;
+    rate: number;
+  }> {
+    const amountUsd = amountUsdCents / 100;
+    const { localAmount, rate } = await this.getConvertedAmount(
+      amountUsd,
+      currency,
+    );
+    return { usd: amountUsd, currency, localAmount, rate };
+  }
+
+  // ─── EXISTING (unchanged) ───────────────────────────────────────────────────
   async getSummary(userId: string) {
     const [usage, balance] = await Promise.all([
       this.getUsageTotals(userId),
@@ -73,10 +155,14 @@ export class BillingService {
     return this.consumeCredits(userId, cost, reason, { usageType });
   }
 
+  // ─── UPDATED: createCheckoutSession now accepts currency ────────────────────
+
   async createCheckoutSession(input: {
     userId: string;
     amountUsdCents: number;
+    currency?: string; // NEW — defaults to USD
   }) {
+
     const amountUsdCents = Math.floor(input.amountUsdCents);
     if (
       !Number.isFinite(amountUsdCents) ||
@@ -87,28 +173,52 @@ export class BillingService {
       );
     }
 
-    const flutterwaveSecretKey = this.getEnv('FLUTTERWAVE_SECRET_KEY');
+    const flutterwaveSecretKey = this.getEnv('FLW_SECRET_KEY');
     if (!flutterwaveSecretKey) {
-      throw new InternalServerErrorException('Missing FLUTTERWAVE_SECRET_KEY');
+      throw new InternalServerErrorException('Missing FLW_SECRET_KEY');
     }
+
+    // Resolve currency — prefer request, then env, then USD
+    const rawCurrency = (
+      input.currency ||
+      this.getEnv('FLW_CURRENCY') ||
+      'USD'
+    ).toUpperCase();
+    const currency = CURRENCY_PAYMENT_OPTIONS[rawCurrency]
+      ? rawCurrency
+      : 'USD';
+    const paymentOptions = CURRENCY_PAYMENT_OPTIONS[currency];
 
     const frontendUrl = (
       this.getEnv('FRONTEND_URL') || 'http://localhost:3000'
     ).replace(/\/+$/, '');
+
     const orderId = randomUUID();
-    const configuredSuccessUrl = this.getEnv('FLUTTERWAVE_REDIRECT_URL');
+    const configuredSuccessUrl = this.getEnv('FLW_REDIRECT_URL');
     const successUrl = configuredSuccessUrl
       ? this.decorateSuccessUrl(configuredSuccessUrl, orderId)
       : `${frontendUrl}/dashboard/settings?billing=success&order_id=${orderId}`;
     const cancelUrl =
-      this.getEnv('FLUTTERWAVE_CANCEL_URL') ||
+      this.getEnv('FLW_CANCEL_URL') ||
       `${frontendUrl}/dashboard/settings?billing=cancelled`;
     const redirectUrl = `${successUrl}${
       successUrl.includes('?') ? '&' : '?'
     }cancel_url=${encodeURIComponent(cancelUrl)}`;
-    const currency = this.getEnv('BILLING_CURRENCY') || 'USD';
 
-    const credits = Math.floor((amountUsdCents / 100) * this.creditsPerUsd);
+    // Credits are always calculated from USD — never from local currency
+    const amountUsd = amountUsdCents / 100;
+    const credits = Math.floor(amountUsd * this.creditsPerUsd);
+
+    // NEW: convert USD to local currency via Flutterwave rates API
+    const { localAmount } = await this.getConvertedAmount(amountUsd, currency);
+    console.log('CHECKOUT DEBUG', {
+      amountUsdCents,
+      amountUsd,
+      currency,
+      localAmount,
+      credits,
+    });
+
     const txRef = `swiftapplyhq_${orderId}`;
     const customerEmail =
       (await this.getUserEmail(input.userId)) || 'customer@swiftapplyhq.com';
@@ -130,10 +240,10 @@ export class BillingService {
       },
       body: JSON.stringify({
         tx_ref: txRef,
-        amount: (amountUsdCents / 100).toFixed(2),
-        currency,
+        amount: localAmount, // charge in local currency
+        currency, // e.g. NGN, KES, GHS, USD
         redirect_url: redirectUrl,
-        payment_options: 'card,banktransfer,ussd',
+        payment_options: paymentOptions,
         customer: {
           email: customerEmail,
           name: 'SwiftApplyHQ User',
@@ -146,6 +256,9 @@ export class BillingService {
           orderId,
           userId: input.userId,
           credits,
+          usdAmount: amountUsd, // always store USD base for reference
+          localCurrency: currency,
+          localAmount,
         },
       }),
     });
@@ -178,23 +291,26 @@ export class BillingService {
       checkoutUrl: body.data.link,
       credits,
       amountUsdCents,
+      currency,
+      localAmount,
     };
   }
 
+  // ─── UPDATED: confirmCheckoutPayment handles multi-currency amount check ─────
   async confirmCheckoutPayment(input: {
     userId: string;
     orderId: string;
     transactionId: string;
     txRef?: string;
   }) {
-    const flutterwaveSecretKey = this.getEnv('FLUTTERWAVE_SECRET_KEY');
+    const flutterwaveSecretKey = this.getEnv('FLW_SECRET_KEY');
     if (!flutterwaveSecretKey) {
-      throw new InternalServerErrorException('Missing FLUTTERWAVE_SECRET_KEY');
+      throw new InternalServerErrorException('Missing FLW_SECRET_KEY');
     }
 
     const orderResult = await dbPool.query(
       `
-      SELECT id, "userId", credits, status, "providerSessionId", "creditedAt"
+      SELECT id, "userId", credits, "amountUsdCents", status, "providerSessionId", "creditedAt"
       FROM credit_orders
       WHERE id = $1
       LIMIT 1
@@ -207,6 +323,7 @@ export class BillingService {
           id: string;
           userId: string;
           credits: number;
+          amountUsdCents: number;
           status: string;
           providerSessionId: string | null;
           creditedAt: string | Date | null;
@@ -245,6 +362,7 @@ export class BillingService {
             status?: string;
             amount?: number;
             currency?: string;
+            meta?: { usdAmount?: number; localAmount?: number };
           };
         }
       | undefined;
@@ -261,6 +379,7 @@ export class BillingService {
 
     const expectedTxRef =
       order.providerSessionId || `swiftapplyhq_${input.orderId}`;
+
     if (verified.data.tx_ref !== expectedTxRef) {
       throw new BadRequestException('Payment reference mismatch');
     }
@@ -270,9 +389,15 @@ export class BillingService {
     if (verified.data.status !== 'successful') {
       throw new BadRequestException('Payment not completed yet');
     }
-    const requiredAmount = order.credits / this.creditsPerUsd;
+
+    // Amount check: use meta.localAmount if available, otherwise fall back to USD
+    // This handles NGN/KES/GHS payments correctly
+    const verifiedCurrency = verified.data.currency ?? 'USD';
     const actualAmount = Number(verified.data.amount ?? 0);
-    if (actualAmount + 0.0001 < requiredAmount) {
+    const expectedLocalAmount =
+      verified.data.meta?.localAmount ?? order.amountUsdCents / 100; // fallback to USD cents
+
+    if (actualAmount + 0.01 < expectedLocalAmount) {
       throw new BadRequestException('Paid amount is lower than required');
     }
 
@@ -294,14 +419,26 @@ export class BillingService {
     return { success: true, status: 'paid', credited: order.credits };
   }
 
+  // ─── EXISTING (unchanged) ───────────────────────────────────────────────────
   async handleFlutterwaveWebhook(input: {
     signature?: string;
+    rawBody?: string;
     payload: unknown;
   }) {
-    const configuredHash = this.getEnv('FLUTTERWAVE_WEBHOOK_HASH');
-    if (configuredHash) {
-      const received = input.signature?.trim();
-      if (!received || received !== configuredHash) {
+    const secretHash = this.getEnv('FLW_WEBHOOK_HASH');
+
+    if (secretHash) {
+      const receivedSignature = input.signature?.trim();
+
+      if (!receivedSignature || !input.rawBody) {
+        throw new BadRequestException('Missing webhook signature or body');
+      }
+
+      const expectedHash = createHmac('sha256', secretHash)
+        .update(input.rawBody)
+        .digest('base64');
+
+      if (receivedSignature !== expectedHash) {
         throw new BadRequestException('Invalid webhook signature');
       }
     }
@@ -330,7 +467,6 @@ export class BillingService {
       return { accepted: true, ignored: true, reason: 'missing tx_ref/id' };
     }
 
-    // Process only successful charge events.
     if (status !== 'successful') {
       return { accepted: true, ignored: true, reason: 'status not successful' };
     }
@@ -344,6 +480,7 @@ export class BillingService {
       `,
       [txRef],
     );
+
     const order = orderResult.rows[0] as
       | { id: string; userId: string }
       | undefined;
@@ -386,6 +523,7 @@ export class BillingService {
       const row = lockOrder.rows[0] as
         | { creditedAt: string | Date | null }
         | undefined;
+
       if (!row) {
         throw new BadRequestException('Credit order not found');
       }
@@ -405,6 +543,7 @@ export class BillingService {
         input.userId,
         balanceAfter,
       );
+
       await client.query(
         `
         INSERT INTO credit_ledger (
@@ -461,6 +600,7 @@ export class BillingService {
     const client = await dbPool.connect();
     try {
       await client.query('BEGIN');
+
       const current = await this.getCreditBalanceInternal(client, userId);
       if (current < cost) {
         throw new BadRequestException({
@@ -475,6 +615,7 @@ export class BillingService {
 
       const next = current - cost;
       await this.upsertCreditBalanceInternal(client, userId, next);
+
       await client.query(
         `
         INSERT INTO credit_ledger (
