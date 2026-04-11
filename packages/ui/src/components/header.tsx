@@ -20,10 +20,12 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
-                SA
-              </div>
-              <span className="text-xl font-bold">SwiftApplyHQ</span>
+              <img
+                src="/branding/swiftapply.png"
+                alt="SwiftApplyHQ"
+
+                className="h-[35px] w-[200px]"
+              />
             </div>
           </div>
 

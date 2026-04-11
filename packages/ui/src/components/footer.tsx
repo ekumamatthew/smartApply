@@ -20,11 +20,13 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
           <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
             {/* Brand */}
             <div className="flex flex-col items-start space-y-4">
-              <div className="mb-4 flex items-center space-x-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded bg-primary font-bold text-primary-foreground">
-                  SA
-                </div>
-                <span className="text-xl font-bold">SwiftApplyHQ</span>
+              <div className="mb flex items-center space-x-2">
+                <img
+                  src="/branding/swiftapply.png"
+                  alt="SwiftApplyHQ"
+
+                  className="h-[35px] w-[250px]"
+                />
               </div>
               <p className="mb-4 max-w-md text-muted-foreground">
                 The intelligent job application platform that helps you land

@@ -167,32 +167,13 @@ function Popup() {
             className="flex items-center gap-2"
             style={{ display: "flex", alignItems: "center", gap: "8px" }}
           >
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600"
-              style={{
-                width: "32px",
-                height: "32px",
-                background:
-                  "linear-gradient(to bottom right, #2563eb, #9333ea)",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <span
-                className="text-xs font-bold text-white"
-                style={{ color: "white", fontSize: "12px", fontWeight: "bold" }}
-              >
-                SA
-              </span>
-            </div>
-            <span
-              className="font-bold text-gray-900"
-              style={{ fontWeight: "bold", color: "#111827" }}
-            >
-              SwiftApplyHQ
-            </span>
+            <img
+              src="/branding/swiftapply.png"
+              alt="SwiftApplyHQ"
+              width={150}
+              height={36}
+              style={{ height: "36px", width: "auto" }}
+            />
           </div>
           <div
             className="inline-flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 backdrop-blur-sm"

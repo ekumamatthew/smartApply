@@ -8,10 +8,8 @@ import {
   FileText,
   Home,
   LogOut,
-  Menu,
   Settings,
   Users,
-  X,
 } from "lucide-react"
 import * as React from "react"
 
@@ -42,6 +40,15 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
   ) => {
     const [isMobileOpen, setIsMobileOpen] = React.useState(false)
     const [pathname, setPathname] = React.useState(currentPath ?? "")
+    const [mobileBadgePos, setMobileBadgePos] = React.useState({
+      x: 4,
+      y: 4,
+    })
+    const badgeRef = React.useRef<HTMLDivElement>(null)
+    const dragOffsetRef = React.useRef({ x: 0, y: 0 })
+    const startPointerRef = React.useRef({ x: 0, y: 0 })
+    const isDraggingRef = React.useRef(false)
+    const didDragRef = React.useRef(false)
 
     React.useEffect(() => {
       if (currentPath) {
@@ -54,10 +61,69 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       }
     }, [currentPath])
 
+    const clampBadgePosition = React.useCallback((x: number, y: number) => {
+      if (typeof window === "undefined") {
+        return { x, y }
+      }
+      const rect = badgeRef.current?.getBoundingClientRect()
+      const width = rect?.width ?? 44
+      const height = rect?.height ?? 44
+      const maxX = Math.max(0, window.innerWidth - width)
+      const maxY = Math.max(0, window.innerHeight - height)
+      return {
+        x: Math.min(Math.max(0, x), maxX),
+        y: Math.min(Math.max(0, y), maxY),
+      }
+    }, [])
+
+    const onBadgePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+      if (typeof window === "undefined") return
+      isDraggingRef.current = true
+      didDragRef.current = false
+      startPointerRef.current = { x: event.clientX, y: event.clientY }
+      const rect = badgeRef.current?.getBoundingClientRect()
+      dragOffsetRef.current = {
+        x: event.clientX - (rect?.left ?? mobileBadgePos.x),
+        y: event.clientY - (rect?.top ?? mobileBadgePos.y),
+      }
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+
+    const onBadgePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDraggingRef.current) return
+      const deltaX = Math.abs(event.clientX - startPointerRef.current.x)
+      const deltaY = Math.abs(event.clientY - startPointerRef.current.y)
+      if (deltaX > 3 || deltaY > 3) {
+        didDragRef.current = true
+      }
+      const nextX = event.clientX - dragOffsetRef.current.x
+      const nextY = event.clientY - dragOffsetRef.current.y
+      setMobileBadgePos(clampBadgePosition(nextX, nextY))
+    }
+
+    const onBadgePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+      if (isDraggingRef.current && !didDragRef.current) {
+        setIsMobileOpen(true)
+      }
+      isDraggingRef.current = false
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    }
+
+    React.useEffect(() => {
+      if (typeof window === "undefined") return
+      const onResize = () => {
+        setMobileBadgePos((prev) => clampBadgePosition(prev.x, prev.y))
+      }
+      window.addEventListener("resize", onResize)
+      return () => {
+        window.removeEventListener("resize", onResize)
+      }
+    }, [clampBadgePosition])
+
     const displayName =
-      user?.name?.trim() ||
-      user?.email?.split("@")[0] ||
-      "User"
+      user?.name?.trim() || user?.email?.split("@")[0] || "User"
     const displayEmail = user?.email?.trim() || "No email"
     const initials = displayName
       .split(" ")
@@ -105,18 +171,45 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     return (
       <>
         {/* Mobile Menu Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="fixed top-4 left-4 z-50 md:hidden"
-          onClick={() => setIsMobileOpen(!isMobileOpen)}
-        >
-          {isMobileOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
+
+        <div
+          ref={badgeRef}
+          className={cn(
+            "z-[60] rounded-lg border border-border bg-background p-2 md:hidden",
+            isMobileOpen ? "hidden" : "fixed"
           )}
-        </Button>
+          style={{
+            left: `${mobileBadgePos.x}px`,
+            top: `${mobileBadgePos.y}px`,
+            touchAction: "none",
+          }}
+          onPointerDown={onBadgePointerDown}
+          onPointerMove={onBadgePointerMove}
+          onPointerUp={onBadgePointerUp}
+          onPointerCancel={onBadgePointerUp}
+        >
+          <img
+            onClick={() => setIsMobileOpen(true)}
+            src={"/branding/logobg.png"}
+            className="h-6 w-6 object-contain"
+            alt="SwiftApplyHQ"
+          />
+        </div>
+
+        {isMobileOpen ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="fixed top-3 left-3 z-[60] h-11 w-auto rounded-xl border border-border/60 bg-background/95 px-2 shadow-sm backdrop-blur md:hidden"
+            onClick={() => setIsMobileOpen(false)}
+          >
+            <img
+              src={"/branding/swiftapply.png"}
+              className="h-7 w-[150px] object-contain"
+              alt="SwiftApplyHQ"
+            />
+          </Button>
+        ) : null}
 
         {/* Mobile Overlay */}
         {isMobileOpen && (
@@ -143,34 +236,22 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           <div className="flex h-full flex-col">
             {/* Logo/Brand */}
             <div className="flex h-16 items-center justify-between border-b px-4">
-              {!isCollapsed && (
-                <div className="flex items-center space-x-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
-                    SA
-                  </div>
-                  <span className="text-lg font-bold">SwiftApplyHQ</span>
-                </div>
-              )}
-              {isCollapsed && (
-                <button
-                  type="button"
-                  className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground"
-                  onClick={onToggle}
-                  aria-label="Expand sidebar"
-                >
-                  SA
-                </button>
-              )}
-              {!isCollapsed ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hidden md:flex"
-                  onClick={onToggle}
-                >
-                  <Menu className="h-4 w-4" />
-                </Button>
-              ) : null}
+              <Button
+                onClick={onToggle}
+                variant="ghost"
+                size="icon"
+                className="hidden h-auto w-full md:flex"
+              >
+                <img
+                  src={
+                    isCollapsed
+                      ? "/branding/logobg.png"
+                      : "/branding/swiftapply.png"
+                  }
+                  className="h-auto w-auto"
+                  alt="SwiftApplyHQ"
+                />
+              </Button>
             </div>
 
             {/* Navigation */}
@@ -182,19 +263,22 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                     : pathname.startsWith(item.href)
 
                 return (
-                <Button
-                  key={item.href}
-                  variant={isActive ? "default" : "ghost"}
-                  className={cn("w-full justify-start", isCollapsed && "px-2")}
-                  asChild
-                >
-                  <a href={item.href} onClick={() => setIsMobileOpen(false)}>
-                    <item.icon
-                      className={cn("h-4 w-4", !isCollapsed && "mr-3")}
-                    />
-                    {!isCollapsed && <span>{item.label}</span>}
-                  </a>
-                </Button>
+                  <Button
+                    key={item.href}
+                    variant={isActive ? "default" : "ghost"}
+                    className={cn(
+                      "w-full justify-start",
+                      isCollapsed && "px-2"
+                    )}
+                    asChild
+                  >
+                    <a href={item.href} onClick={() => setIsMobileOpen(false)}>
+                      <item.icon
+                        className={cn("h-4 w-4", !isCollapsed && "mr-3")}
+                      />
+                      {!isCollapsed && <span>{item.label}</span>}
+                    </a>
+                  </Button>
                 )
               })}
             </nav>
@@ -207,7 +291,9 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 </div>
                 {!isCollapsed && (
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{displayName}</p>
+                    <p className="truncate text-sm font-medium">
+                      {displayName}
+                    </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {displayEmail}
                     </p>

@@ -2,6 +2,7 @@
 
 import { Header } from "@workspace/ui/components/header"
 import { cn } from "@workspace/ui/lib/utils"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signOut, useSession } from "../auth/web-auth-client"
@@ -25,10 +26,13 @@ export function AuthenticatedHeader({ className }: AuthenticatedHeaderProps) {
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
-                SA
-              </div>
-              <span className="text-xl font-bold">SwiftApplyHQ</span>
+              <Image
+                src="/branding/swiftapply.png"
+                alt="SwiftApplyHQ"
+                width={150}
+                height={36}
+                className="h-9 w-auto"
+              />
             </div>
           </div>
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
@@ -49,9 +53,12 @@ export function AuthenticatedHeader({ className }: AuthenticatedHeaderProps) {
       <div className="absolute top-4 right-4 flex items-center space-x-2">
         {session ? (
           <>
-            <span className="hidden text-sm text-muted-foreground md:inline-flex">
+            <Link
+              href="/dashboard"
+              className="hidden text-sm text-muted-foreground md:inline-flex"
+            >
               {session.user.email}
-            </span>
+            </Link>
             <button
               onClick={handleSignOut}
               className="hidden px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-primary md:inline-flex"
