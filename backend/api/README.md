@@ -61,11 +61,11 @@ FLUTTERWAVE_WEBHOOK_HASH=your_flutterwave_webhook_hash
 BILLING_CURRENCY=USD
 CREDITS_PER_USD=100
 MIN_PURCHASE_USD_CENTS=100
-CREDIT_COST_PARSE=25
-CREDIT_COST_GENERATE=40
+CREDIT_COST_PARSE=40
+CREDIT_COST_GENERATE=25
 ```
 
-Metrics endpoint: `GET /metrics`  
+Metrics endpoint: `GET /metrics`
 Request tracing header: `x-request-id`
 
 ## CV Optimization Endpoints
