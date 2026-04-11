@@ -29,14 +29,14 @@ export default function HowItWorksPage() {
               How SwiftApplyHQ Works
             </div>
             <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Land Your Dream Job in
+              Stop Spending Hours on
               <span className="block bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                3 Simple Steps
+                Every Single Application
               </span>
             </h2>
             <p className="mx-auto max-w-2xl text-xl text-muted-foreground backdrop-blur-sm bg-background/20 p-4 rounded-lg">
-              Our intelligent platform automates the tedious parts of job searching,
-              so you can focus on what matters most - preparing for interviews.
+              SwiftApplyHQ removes the repetitive parts of applying so you can
+              move faster, stay organized, and focus on getting hired.
             </p>
           </div>
 
@@ -134,7 +134,7 @@ export default function HowItWorksPage() {
                 <CheckCircle className="mb-3 h-8 w-8 text-purple-600" />
                 <h4 className="mb-2 text-lg font-semibold text-foreground">10K+ Happy Users</h4>
                 <p className="text-sm text-muted-foreground">
-                  Join thousands who've landed their dream jobs
+                  Trusted by job seekers who want less stress and better outcomes
                 </p>
               </div>
             </div>

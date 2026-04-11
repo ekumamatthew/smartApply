@@ -26,44 +26,44 @@ const Features = React.forwardRef<HTMLDivElement, FeaturesProps>(
     const features: Feature[] = [
       {
         icon: <Brain className="h-6 w-6 text-white" />,
-        title: "AI-Powered Analysis",
+        title: "No More Guesswork",
         description:
-          "Intelligent job posting analysis that understands requirements and matches your skills perfectly.",
+          "Paste any job post and quickly see what matters most, so you stop second-guessing every application.",
         gradient: "from-blue-500 to-purple-600",
       },
       {
         icon: <FileText className="h-6 w-6 text-white" />,
-        title: "CV Tailoring",
+        title: "Tailored CVs Without Rework",
         description:
-          "Automatically customize your CV for each application while maintaining your authentic voice.",
+          "Turn one base CV into role-specific versions in minutes instead of rewriting from scratch every time.",
         gradient: "from-green-500 to-blue-600",
       },
       {
         icon: <Mail className="h-6 w-6 text-white" />,
-        title: "Smart Emails",
+        title: "Emails That Sound Like You",
         description:
-          "Generate personalized application emails and cover letters that get recruiters' attention.",
+          "Generate clear, professional application emails that fit the role and still feel personal.",
         gradient: "from-purple-500 to-pink-600",
       },
       {
         icon: <TrendingUp className="h-6 w-6 text-white" />,
-        title: "Application Tracking",
+        title: "Stay in Control",
         description:
-          "Monitor all your applications in one dashboard with detailed analytics and insights.",
+          "Track every application, follow-up, and version in one place instead of losing opportunities in scattered notes.",
         gradient: "from-blue-600 to-purple-600",
       },
       {
         icon: <Shield className="h-6 w-6 text-white" />,
-        title: "Privacy First",
+        title: "Private by Default",
         description:
-          "Your data is encrypted and secure. We never share your information with third parties.",
+          "Your CV and job data stay protected, so you can apply with confidence.",
         gradient: "from-green-600 to-blue-600",
       },
       {
         icon: <Clock className="h-6 w-6 text-white" />,
-        title: "Time Automation",
+        title: "Save Hours Every Week",
         description:
-          "Schedule applications for optimal times and follow-ups automatically to maximize response rates.",
+          "Automate repetitive application work so your time goes to interviews, preparation, and real progress.",
         gradient: "from-purple-600 to-pink-600",
       },
     ]
@@ -92,15 +92,15 @@ const Features = React.forwardRef<HTMLDivElement, FeaturesProps>(
           {/* Section Header */}
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Everything You Need to
+              Job Search Is Hard Enough.
               <span className="block animate-pulse bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Land Your Dream Job
+                Applying Should Be Easier.
               </span>
             </h2>
             <p className="mx-auto max-w-2xl rounded-lg bg-white/5 p-4 text-xl text-muted-foreground backdrop-blur-sm">
-              Our comprehensive suite of tools automates the tedious parts of
-              job searching so you can focus on what matters most - preparing
-              for interviews.
+              SwiftApplyHQ removes the busywork that drains your energy and
+              slows you down, so you can submit stronger applications without
+              burning out.
             </p>
           </div>
 
@@ -151,11 +151,11 @@ const Features = React.forwardRef<HTMLDivElement, FeaturesProps>(
 
                 <div className="relative">
                   <h3 className="mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-2xl font-bold text-transparent">
-                    Ready to Transform Your Job Search?
+                    Ready to Apply With Less Stress?
                   </h3>
                   <p className="mx-auto mb-6 max-w-2xl text-muted-foreground">
-                    Join thousands of job seekers who have landed their dream
-                    jobs with SwiftApplyHQ.
+                    Send better applications in less time and improve your odds
+                    of getting interviews.
                   </p>
                   <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:items-center sm:gap-8">
                     <a

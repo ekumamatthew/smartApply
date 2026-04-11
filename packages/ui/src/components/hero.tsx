@@ -34,25 +34,25 @@ const Hero = React.forwardRef<HTMLDivElement, HeroProps>(
             {/* Badge */}
             <div className="mb-6 inline-flex animate-bounce items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary backdrop-blur-sm">
               <Zap className="mr-2 h-4 w-4" />
-              AI-Powered Job Application Automation
+              Job search stress, solved
             </div>
 
             {/* Main Headline */}
             <h1 className="mb-6 text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
               <span className="animate-pulse bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Land Your Dream Job
+                Stop Rewriting Every
               </span>
               <span className="block bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                10x Faster
+                Job Application
               </span>
             </h1>
 
             {/* Subheadline */}
             <p className="mx-auto mb-8 max-w-2xl rounded-lg border border-border/20 bg-background/30 p-4 text-xl leading-relaxed text-foreground/90 backdrop-blur-sm">
-              SwiftApplyHQ automates your job search with intelligent CV
-              tailoring, personalized cover letters, and application tracking.
-              Stop spending hours on repetitive tasks and start landing more
-              interviews.
+              Applying should not feel like a full-time job. SwiftApplyHQ helps
+              you turn one CV and a pasted job post into tailored applications
+              in minutes, so you can send better applications, faster, with
+              less burnout.
             </p>
 
             {/* CTA Buttons */}
@@ -63,7 +63,7 @@ const Hero = React.forwardRef<HTMLDivElement, HeroProps>(
                 asChild
               >
                 <a href="/auth/signup">
-                  Start Free Trial
+                  Start Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
               </Button>
@@ -80,11 +80,11 @@ const Hero = React.forwardRef<HTMLDivElement, HeroProps>(
             <div className="flex flex-col items-center justify-center gap-8 text-foreground/80 sm:flex-row">
               <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 px-4 py-2 backdrop-blur-sm">
                 <Target className="h-5 w-5 text-primary" />
-                <span className="text-sm">500+ Jobs Applied Daily</span>
+                <span className="text-sm">Less application fatigue</span>
               </div>
               <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 px-4 py-2 backdrop-blur-sm">
                 <BarChart3 className="h-5 w-5 text-primary" />
-                <span className="text-sm">3x Interview Rate</span>
+                <span className="text-sm">More interview-ready applications</span>
               </div>
             </div>
           </div>

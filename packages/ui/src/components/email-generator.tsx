@@ -64,17 +64,17 @@ Best regards,
           <div className="mb-16 text-center">
             <div className="mb-6 inline-flex items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary backdrop-blur-sm">
               <Sparkles className="mr-2 h-4 w-4" />
-              Try It Now - Free Email Generator
+              Free email generator
             </div>
             <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Generate Professional
+              Stop Staring at a Blank
               <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Application Emails
+                Application Email
               </span>
             </h2>
             <p className="mx-auto max-w-2xl rounded-lg bg-background/20 p-4 text-xl text-muted-foreground backdrop-blur-sm">
-              Experience the power of AI-generated application emails. Just
-              paste a job description and get a professional email in seconds.
+              Paste a job description and get a strong first draft in seconds.
+              Edit, personalize, and send with confidence.
             </p>
           </div>
 
@@ -166,7 +166,7 @@ Best regards,
                         <div className="text-center">
                           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
                           <p className="text-sm text-muted-foreground">
-                            Generating your professional email...
+                            Writing your tailored email...
                           </p>
                         </div>
                       </div>
@@ -182,8 +182,8 @@ Best regards,
                             Your generated email will appear here
                           </p>
                           <p className="mt-2 text-xs">
-                            Paste a job description and click generate to get
-                            started
+                            Paste a job description and generate your first
+                            draft
                           </p>
                         </div>
                       </div>
@@ -231,12 +231,12 @@ Best regards,
           <div className="mt-16 text-center">
             <div className="inline-flex items-center justify-center rounded-full border border-primary/20 bg-primary/5 px-6 py-3 text-sm text-primary backdrop-blur-sm">
               <Sparkles className="mr-2 h-4 w-4" />
-              Ready for more advanced features?
+              Want full CV tailoring and tracking too?
               <a
                 href="/auth/signup"
                 className="ml-2 font-medium underline hover:text-primary/80"
               >
-                Sign up for SwiftApplyHQ
+                Create a free account
               </a>
             </div>
           </div>
