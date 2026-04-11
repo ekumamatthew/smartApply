@@ -6,9 +6,5 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  return (
-    <body>
-      <AuthProvider>{children}</AuthProvider>
-    </body>
-  )
+  return <AuthProvider>{children}</AuthProvider>
 }

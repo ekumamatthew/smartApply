@@ -98,8 +98,8 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
         )}
       >
         {!isEmailVerified ? (
-          <div className="sticky top-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-            <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 text-sm">
+          <div className="sticky hidden top-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+            <div className="mx-auto flex max-w-6xl items-center text-base justify-between gap-3 text-sm">
               <p>
                 Your email is not verified yet. Verify your account to keep it secure.
               </p>
