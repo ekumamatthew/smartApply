@@ -38,7 +38,7 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     },
     ref
   ) => {
-    const [isMobileOpen, setIsMobileOpen] = React.useState(true)
+    const [isMobileOpen, setIsMobileOpen] = React.useState(false)
     const [pathname, setPathname] = React.useState(currentPath ?? "")
     const [mobileBadgePos, setMobileBadgePos] = React.useState({
       x: 4,
