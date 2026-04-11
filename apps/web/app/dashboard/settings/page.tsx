@@ -1,7 +1,12 @@
 "use client"
 
-import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import { useAppToast } from "@/src/components/AppToastProvider"
+import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
+import {
+  confirmCreditCheckout,
+  createCreditCheckout,
+  fetchBillingSummary,
+} from "@/src/lib/billing-api"
 import {
   fetchSettings,
   updateNotificationSettings,
@@ -9,15 +14,10 @@ import {
   type UserNotificationSettings,
   type UserProfileSettings,
 } from "@/src/lib/dashboard-api"
-import {
-  confirmCreditCheckout,
-  createCreditCheckout,
-  fetchBillingSummary,
-} from "@/src/lib/billing-api"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Bell,
   Briefcase,
@@ -52,10 +52,12 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const { showToast } = useAppToast()
   const [activeTab, setActiveTab] = React.useState("profile")
-  const [profile, setProfile] = React.useState<UserProfileSettings>(defaultProfile)
+  const [profile, setProfile] =
+    React.useState<UserProfileSettings>(defaultProfile)
   const [notifications, setNotifications] =
     React.useState<UserNotificationSettings>(defaultNotifications)
-  const [purchaseUsd, setPurchaseUsd] = React.useState("10")
+  const [purchaseUsd, setPurchaseUsd] = React.useState("1000")
+  const [selectedCurrency, setSelectedCurrency] = React.useState("USD")
   const [saveMessage, setSaveMessage] = React.useState("")
 
   const settingsQuery = useQuery({
@@ -109,11 +111,14 @@ export default function SettingsPage() {
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
-      const amount = Number(purchaseUsd)
-      if (!Number.isFinite(amount) || amount < 1) {
-        throw new Error("Minimum purchase is $1")
+      const credits = Number(purchaseUsd)
+      if (!Number.isFinite(credits) || credits < 1000) {
+        throw new Error("Minimum purchase is 1000 credits")
       }
-      return createCreditCheckout(amount)
+      return createCreditCheckout({
+        credits,
+        currency: selectedCurrency,
+      })
     },
     onSuccess: (data) => {
       window.location.href = data.checkoutUrl
@@ -133,7 +138,8 @@ export default function SettingsPage() {
       orderId: string
       transactionId: string
       txRef?: string
-    }) => confirmCreditCheckout(input.orderId, input.transactionId, input.txRef),
+    }) =>
+      confirmCreditCheckout(input.orderId, input.transactionId, input.txRef),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["billing-summary"] })
       showToast({
@@ -179,7 +185,11 @@ export default function SettingsPage() {
     }
 
     if (!transactionId || !orderId || confirmMutation.isPending) return
-    confirmMutation.mutate({ orderId, transactionId, txRef: txRef ?? undefined })
+    confirmMutation.mutate({
+      orderId,
+      transactionId,
+      txRef: txRef ?? undefined,
+    })
     url.searchParams.delete("transaction_id")
     url.searchParams.delete("tx_ref")
     url.searchParams.delete("order_id")
@@ -217,7 +227,10 @@ export default function SettingsPage() {
               Manage your profile and application preferences
             </p>
           </div>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+          >
             <Save className="mr-2 h-4 w-4" />
             {saveMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
@@ -252,14 +265,18 @@ export default function SettingsPage() {
         {activeTab === "profile" && (
           <div className="space-y-6">
             <div className="rounded-lg border bg-card p-6">
-              <h2 className="mb-6 text-lg font-semibold">Personal Information</h2>
+              <h2 className="mb-6 text-lg font-semibold">
+                Personal Information
+              </h2>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
                     value={profile.fullName}
-                    onChange={(e) => handleProfileChange("fullName", e.target.value)}
+                    onChange={(e) =>
+                      handleProfileChange("fullName", e.target.value)
+                    }
                     placeholder="Enter your full name"
                   />
                 </div>
@@ -280,7 +297,9 @@ export default function SettingsPage() {
                   <Input
                     id="phone"
                     value={profile.phone}
-                    onChange={(e) => handleProfileChange("phone", e.target.value)}
+                    onChange={(e) =>
+                      handleProfileChange("phone", e.target.value)
+                    }
                     placeholder="Enter your phone number"
                   />
                 </div>
@@ -290,7 +309,9 @@ export default function SettingsPage() {
                   <Input
                     id="linkedin"
                     value={profile.linkedin}
-                    onChange={(e) => handleProfileChange("linkedin", e.target.value)}
+                    onChange={(e) =>
+                      handleProfileChange("linkedin", e.target.value)
+                    }
                     placeholder="https://linkedin.com/in/yourprofile"
                   />
                 </div>
@@ -298,7 +319,9 @@ export default function SettingsPage() {
             </div>
 
             <div className="rounded-lg border bg-card p-6">
-              <h2 className="mb-6 text-lg font-semibold">Professional Summary</h2>
+              <h2 className="mb-6 text-lg font-semibold">
+                Professional Summary
+              </h2>
               <div className="space-y-2">
                 <Label htmlFor="summary">About You</Label>
                 <textarea
@@ -318,13 +341,16 @@ export default function SettingsPage() {
         {activeTab === "notifications" && (
           <div className="space-y-6">
             <div className="rounded-lg border bg-card p-6">
-              <h2 className="mb-6 text-lg font-semibold">Email Notifications</h2>
+              <h2 className="mb-6 text-lg font-semibold">
+                Email Notifications
+              </h2>
               <div className="space-y-4">
                 {[
                   {
                     key: "emailNotifications",
                     title: "Email Notifications",
-                    description: "Receive email updates about your applications",
+                    description:
+                      "Receive email updates about your applications",
                     icon: Mail,
                     color: "text-blue-600",
                     bg: "bg-blue-100",
@@ -356,26 +382,32 @@ export default function SettingsPage() {
                   {
                     key: "weeklyReports",
                     title: "Weekly Reports",
-                    description: "Receive weekly summary of your job search activity",
+                    description:
+                      "Receive weekly summary of your job search activity",
                     icon: Briefcase,
                     color: "text-indigo-600",
                     bg: "bg-indigo-100",
                   },
                 ].map((item) => {
                   const Icon = item.icon
-                  const value = notifications[item.key as keyof UserNotificationSettings]
+                  const value =
+                    notifications[item.key as keyof UserNotificationSettings]
                   return (
                     <div
                       key={item.key}
                       className="flex items-center justify-between rounded-lg border p-4"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg}`}>
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg}`}
+                        >
                           <Icon className={`h-4 w-4 ${item.color}`} />
                         </div>
                         <div>
                           <p className="font-medium">{item.title}</p>
-                          <p className="text-sm text-muted-foreground">{item.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.description}
+                          </p>
                         </div>
                       </div>
                       <button
@@ -426,13 +458,15 @@ export default function SettingsPage() {
             <div id="billing" className="rounded-lg border bg-card p-6">
               <h2 className="mb-4 text-lg font-semibold">Billing & Credits</h2>
               <p className="text-sm text-muted-foreground">
-                Free trial: 4 email generations + 4 CV optimizations. Upgrade to
-                keep going with credits.
+                Free trial: 2 email generations and no CV optimizations. Upgrade
+                to keep going with credits.
               </p>
 
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <div className="rounded-lg border p-4">
-                  <p className="text-xs text-muted-foreground">Credit Balance</p>
+                  <p className="text-xs text-muted-foreground">
+                    Credit Balance
+                  </p>
                   <p className="text-2xl font-bold">
                     {billingQuery.data?.credits.balance ?? 0}
                   </p>
@@ -442,7 +476,7 @@ export default function SettingsPage() {
                     Email Cost (after trial)
                   </p>
                   <p className="text-2xl font-bold">
-                    {billingQuery.data?.rates.generate ?? 40}
+                    {billingQuery.data?.rates.generate ?? 25}
                   </p>
                 </div>
                 <div className="rounded-lg border p-4">
@@ -450,29 +484,53 @@ export default function SettingsPage() {
                     CV Optimize Cost (after trial)
                   </p>
                   <p className="text-2xl font-bold">
-                    {billingQuery.data?.rates.parse ?? 25}
+                    {billingQuery.data?.rates.parse ?? 40}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-end">
-                <div className="w-full md:w-64">
-                  <Label htmlFor="purchase">Buy credits (USD)</Label>
-                  <Input
-                    id="purchase"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={purchaseUsd}
-                    onChange={(event) => setPurchaseUsd(event.target.value)}
-                  />
+              <div className="mt-6 space-y-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="w-full md:w-64">
+                    <Label htmlFor="purchase-confirm" className="text-sm">
+                      Add credits and select currency ({selectedCurrency}){" "}
+                      <br />
+                      <i className="text-xs">Min 1000 credits</i>
+                    </Label>
+                    <div className="relative w-full">
+                      <select
+                        id="currency"
+                        value={selectedCurrency}
+                        onChange={(e) => setSelectedCurrency(e.target.value)}
+                        className="absolute top-1 right-1 flex h-8 max-w-[75px] rounded-md border border-none border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none placeholder:text-muted-foreground"
+                      >
+                        <option value="USD">USD - US Dollar</option>
+                        <option value="NGN">NGN - Nigerian Naira</option>
+                        <option value="KES">KES - Kenyan Shilling</option>
+                        <option value="GHS">GHS - Ghanaian Cedi</option>
+                      </select>
+                      <Input
+                        id="purchase-confirm"
+                        type="number"
+                        min={1000}
+                        step={1}
+                        value={purchaseUsd}
+                        onChange={(event) => setPurchaseUsd(event.target.value)}
+                        placeholder={
+                          selectedCurrency === "USD"
+                            ? "Amount in USD"
+                            : "Amount in " + selectedCurrency
+                        }
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => checkoutMutation.mutate()}
+                    disabled={checkoutMutation.isPending}
+                  >
+                    {checkoutMutation.isPending ? "Redirecting..." : "Checkout"}
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => checkoutMutation.mutate()}
-                  disabled={checkoutMutation.isPending}
-                >
-                  {checkoutMutation.isPending ? "Redirecting..." : "Checkout"}
-                </Button>
               </div>
             </div>
           </div>

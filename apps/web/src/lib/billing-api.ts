@@ -25,13 +25,17 @@ export async function fetchBillingSummary(): Promise<BillingSummary> {
   return response.data
 }
 
-export async function createCreditCheckout(amountUsd: number): Promise<{
+export async function createCreditCheckout(params: {
+  credits: number
+  currency: string
+}): Promise<{
   orderId: string
   checkoutUrl: string
   credits: number
   amountUsdCents: number
+  currency: string
 }> {
-  const response = await api.post("/api/billing/checkout", { amountUsd })
+  const response = await api.post("/api/billing/checkout", params)
   return response.data
 }
 
