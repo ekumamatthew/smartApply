@@ -211,13 +211,7 @@ export class BillingService {
 
     // NEW: convert USD to local currency via Flutterwave rates API
     const { localAmount } = await this.getConvertedAmount(amountUsd, currency);
-    console.log('CHECKOUT DEBUG', {
-      amountUsdCents,
-      amountUsd,
-      currency,
-      localAmount,
-      credits,
-    });
+
 
     const txRef = `swiftapplyhq_${orderId}`;
     const customerEmail =
