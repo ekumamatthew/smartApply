@@ -29,9 +29,9 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
                 />
               </div>
               <p className="mb-4 max-w-md text-muted-foreground">
-                The intelligent job application platform that helps you land
-                your dream job faster. Automate, optimize, and manage your
-                entire job search lifecycle.
+                Job hunting can feel overwhelming and repetitive. SwiftApplyHQ
+                helps you create stronger applications faster, so you can focus
+                on interviews and real opportunities.
               </p>
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="icon">

@@ -82,7 +82,7 @@ export default function SignUpPage() {
           <div className="text-center">
             <h1 className="text-2xl font-bold">Create your account</h1>
             <p className="mt-2 text-muted-foreground">
-              Start your journey to landing your dream job
+              Skip the application burnout and start applying smarter
             </p>
           </div>
           {/* Error Display */}
