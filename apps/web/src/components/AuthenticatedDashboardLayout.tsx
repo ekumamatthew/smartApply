@@ -16,7 +16,8 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
   AuthenticatedDashboardLayoutProps
 >(({ children, className, ...props }, ref) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
-  const [isSendingVerification, setIsSendingVerification] = React.useState(false)
+  const [isSendingVerification, setIsSendingVerification] =
+    React.useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const { showToast } = useAppToast()
@@ -41,6 +42,14 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
   const user = session.user as { email?: string; emailVerified?: boolean }
   const isEmailVerified = Boolean(user?.emailVerified)
 
+  // Debug: log email verification status
+  console.log("Email verification debug:", {
+    user,
+    emailVerified: user?.emailVerified,
+    isEmailVerified,
+    session,
+  })
+
   const handleSendVerification = async () => {
     const email = user?.email?.trim()
     if (!email) {
@@ -55,13 +64,17 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
     setIsSendingVerification(true)
     try {
       const callbackURL =
-        typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined
+        typeof window !== "undefined"
+          ? `${window.location.origin}/dashboard`
+          : undefined
       const result = await authClient.sendVerificationEmail({
         email,
         callbackURL,
       })
       if (result.error) {
-        throw new Error(result.error.message || "Could not send verification email")
+        throw new Error(
+          result.error.message || "Could not send verification email"
+        )
       }
 
       showToast({
@@ -98,18 +111,31 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
         )}
       >
         {!isEmailVerified ? (
-          <div className="sticky hidden top-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-            <div className="mx-auto flex max-w-6xl items-center text-base justify-between gap-3 text-sm">
+          <div className="sticky top-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+            <div className="mx-auto flex max-w-[70%] items-start gap-3 text-base text-sm md:max-w-6xl lg:items-center lg:justify-between">
               <p>
-                Your email is not verified yet. Verify your account to keep it secure.
+                Your email is not verified yet. Verify your account to keep it
+                secure.{" "}
+                <button
+                  type="button"
+                  className="border border-amber-400 px-2 py-1 text-xs rounded-sm"
+                  onClick={handleSendVerification}
+                  disabled={isSendingVerification}
+                >
+                  {isSendingVerification
+                    ? "Sending..."
+                    : "Send verification link"}
+                </button>
               </p>
               <button
                 type="button"
                 onClick={handleSendVerification}
                 disabled={isSendingVerification}
-                className="rounded-md border border-amber-400 px-3 py-1 font-medium hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+                className="hidden rounded-md text-sm font-medium hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70 md:block lg:px-3 lg:py-1"
               >
-                {isSendingVerification ? "Sending..." : "Send verification link"}
+                {isSendingVerification
+                  ? "Sending..."
+                  : "Send verification link"}
               </button>
             </div>
           </div>
