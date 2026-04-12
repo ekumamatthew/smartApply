@@ -1,7 +1,7 @@
 "use client"
 
-import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import { useAppToast } from "@/src/components/AppToastProvider"
+import { AuthenticatedDashboardLayout } from "@/src/components/AuthenticatedDashboardLayout"
 import { UpgradePricingModal } from "@/src/components/UpgradePricingModal"
 import { CV_TEMPLATE_DEFINITIONS } from "@/src/components/cv-builder/templates"
 import {
@@ -105,7 +105,8 @@ export default function DashboardPage() {
   const [showUpgradeModal, setShowUpgradeModal] = React.useState(false)
   const exportRef = React.useRef<HTMLDivElement | null>(null)
   const [showProgressModal, setShowProgressModal] = React.useState(false)
-  const [progressActivity, setProgressActivity] = React.useState("Preparing request")
+  const [progressActivity, setProgressActivity] =
+    React.useState("Preparing request")
   const { showToast } = useAppToast()
 
   const cvsQuery = useQuery({
@@ -248,13 +249,10 @@ export default function DashboardPage() {
     setShowProgressModal(false)
   }, [])
 
-  const startProgressModal = React.useCallback(
-    (activity: string) => {
-      setShowProgressModal(true)
-      setProgressActivity(activity)
-    },
-    []
-  )
+  const startProgressModal = React.useCallback((activity: string) => {
+    setShowProgressModal(true)
+    setProgressActivity(activity)
+  }, [])
 
   const uploadCvMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -438,7 +436,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid h-[90vh] gap-6 lg:grid-cols-2">
+        <div className="grid min-h-[50vh] gap-6 lg:h-[90vh] lg:grid-cols-2">
           <div className="h-auto space-y-5 rounded-xl border bg-card p-5">
             <div className="space-y-2 rounded-lg border p-3">
               <div className="flex items-center justify-between">
@@ -691,9 +689,11 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          <div className="no-scrollbar w-full space-y-5 lg:overflow-y-auto">
+          <div className="no-scrollbar w-full space-y-5 overflow-x-hidden lg:overflow-y-auto">
             <div className="rounded-xl border bg-card p-5">
-              <h2 className="mb-3 text-lg font-semibold">CV Status</h2>
+              <h2 className="mb-3 text-sm font-semibold md:text-lg">
+                CV Status
+              </h2>
               <div className="space-y-2 text-sm">
                 <p className="text-muted-foreground">Current default CV</p>
                 <div className="rounded-md border bg-background p-3">
@@ -746,12 +746,14 @@ export default function DashboardPage() {
 
             <div className="rounded-xl border bg-card p-5">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Generated Email</h2>
+                <h2 className="text-sm font-semibold md:text-lg">
+                  Generated Email
+                </h2>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="xs"
                     onClick={handleCopyEmail}
                     disabled={!generatedEmail}
                   >
@@ -761,7 +763,7 @@ export default function DashboardPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="xs"
                     onClick={() => setShowCvPreview(true)}
                     disabled={!latestOptimization}
                   >
@@ -908,7 +910,9 @@ export default function DashboardPage() {
         {showProgressModal ? (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
             <div className="w-[92%] max-w-md rounded-2xl border bg-background/95 p-6 shadow-2xl">
-              <p className="text-sm font-medium text-muted-foreground">SwiftApplyHQ Progress</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                SwiftApplyHQ Progress
+              </p>
               <h3 className="mt-1 text-lg font-semibold">
                 Stay patient as we {progressActivity}...
               </h3>

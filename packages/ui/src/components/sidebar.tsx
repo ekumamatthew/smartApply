@@ -173,20 +173,10 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
         {/* Mobile Menu Button */}
 
         <div
-          ref={badgeRef}
           className={cn(
-            "z-[60] rounded-lg border border-border bg-background p-2 md:hidden",
+            "fixed top-4 right-4 z-40 rounded-lg border border-border bg-background p-2 md:hidden",
             isMobileOpen ? "hidden" : "fixed"
           )}
-          style={{
-            left: `${mobileBadgePos.x}px`,
-            top: `${mobileBadgePos.y}px`,
-            touchAction: "none",
-          }}
-          onPointerDown={onBadgePointerDown}
-          onPointerMove={onBadgePointerMove}
-          onPointerUp={onBadgePointerUp}
-          onPointerCancel={onBadgePointerUp}
         >
           <img
             onClick={() => setIsMobileOpen(true)}
