@@ -14,19 +14,18 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
     return (
       <header
         ref={ref}
-        className={cn("w-full justify-between", className)}
+        className={cn("relative z-50 w-full justify-between", className)}
         {...props}
       >
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
+            <a href="/" className="flex items-center space-x-2">
               <img
                 src="/branding/swiftapply.png"
                 alt="SwiftApplyHQ"
-
                 className="h-[35px] w-[200px]"
               />
-            </div>
+            </a>
           </div>
 
           {/* Desktop Navigation */}
@@ -44,16 +43,14 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
               Pricing
             </a>
             <a
-              href="#testimonials"
+              href="/support"
               className="text-sm font-medium transition-colors hover:text-primary"
             >
-              Testimonials
+              Support
             </a>
           </nav>
 
           <div className="flex items-center space-x-4">
-
-
             {/* Mobile Menu Button */}
             <Button
               variant="ghost"
@@ -86,13 +83,12 @@ const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
                 Pricing
               </a>
               <a
-                href="#testimonials"
+                href="/support"
                 className="block py-2 text-sm font-medium transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Testimonials
+                Support
               </a>
-
             </nav>
           </div>
         )}

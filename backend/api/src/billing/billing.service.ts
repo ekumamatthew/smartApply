@@ -162,7 +162,6 @@ export class BillingService {
     amountUsdCents: number;
     currency?: string; // NEW — defaults to USD
   }) {
-
     const amountUsdCents = Math.floor(input.amountUsdCents);
     if (
       !Number.isFinite(amountUsdCents) ||
@@ -211,7 +210,6 @@ export class BillingService {
 
     // NEW: convert USD to local currency via Flutterwave rates API
     const { localAmount } = await this.getConvertedAmount(amountUsd, currency);
-
 
     const txRef = `swiftapplyhq_${orderId}`;
     const customerEmail =

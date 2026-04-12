@@ -235,3 +235,14 @@ export const waitlistSubscriber = pgTable('waitlist_subscribers', {
   source: text('source').notNull().default('web'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
+
+// ----- Contact Submissions -----
+export const contactSubmission = pgTable('contact_submissions', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  subject: text('subject').notNull(),
+  category: text('category'),
+  message: text('message').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
