@@ -13,7 +13,10 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
     return (
       <footer
         ref={ref}
-        className={cn("flex w-full items-center justify-center border-t bg-background", className)}
+        className={cn(
+          "flex w-full items-center justify-center border-t bg-background",
+          className
+        )}
         {...props}
       >
         <div className="container px-4 py-12">
@@ -24,7 +27,6 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
                 <img
                   src="/branding/swiftapply.png"
                   alt="SwiftApplyHQ"
-
                   className="h-[35px] w-[250px]"
                 />
               </div>
@@ -75,10 +77,10 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
                 </li>
                 <li>
                   <a
-                    href="#testimonials"
+                    href="/support"
                     className="text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    Testimonials
+                    Contact Support
                   </a>
                 </li>
                 <li>
@@ -139,13 +141,13 @@ const Footer = React.forwardRef<HTMLDivElement, FooterProps>(
             </p>
             <div className="flex flex-col items-center gap-6 md:flex-row md:gap-6">
               <a
-                href="#"
+                href="/privacy"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Privacy Policy
               </a>
               <a
-                href="#"
+                href="/terms"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Terms of Service

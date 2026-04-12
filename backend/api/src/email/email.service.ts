@@ -3,13 +3,13 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { OpenRouter } from '@openrouter/sdk';
 import { execFile } from 'node:child_process';
-import { randomUUID, createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname } from 'node:path';
 import { promisify } from 'node:util';
-import { OpenRouter } from '@openrouter/sdk';
 import { parseOfficeAsync } from 'officeparser';
 import { dbPool } from '../lib/db';
 import { objectStorage } from '../lib/object-storage';
@@ -173,7 +173,7 @@ export class EmailService {
 
     const userPrompt = `Write a tailored job application email as strict JSON with keys: subject, body, keyHighlights.
 
-Recipient email: ${dto.recipientEmail}
+Recipient email: ${dto.recipientEmail || 'Not specified'}
 Recipient name: ${dto.recipientName || 'Hiring Manager'}
 Applicant name: ${dto.applicantName || 'Applicant'}
 Tone: ${dto.tone || 'professional'}

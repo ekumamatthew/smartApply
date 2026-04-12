@@ -313,10 +313,6 @@ export default function DashboardPage() {
         )
       }
 
-      if (!form.recipientEmail.trim()) {
-        throw new Error("Please provide recipient email")
-      }
-
       startProgressModal("generating your tailored email")
 
       const email = await generateApplicationEmail({
@@ -553,7 +549,9 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="recipientEmail">Recipient Email</Label>
+                <Label htmlFor="recipientEmail">
+                  Recipient Email (optional)
+                </Label>
                 <Input
                   id="recipientEmail"
                   type="email"

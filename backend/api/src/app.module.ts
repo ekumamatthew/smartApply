@@ -15,6 +15,8 @@ import { EmailController } from './email/email.controller';
 import { EmailService } from './email/email.service';
 import { SettingsController } from './settings/settings.controller';
 import { SettingsService } from './settings/settings.service';
+import { ContactController } from './contact/contact.controller';
+import { ContactService } from './contact/contact.service';
 
 @Module({
   controllers: [
@@ -24,6 +26,7 @@ import { SettingsService } from './settings/settings.service';
     BillingController,
     MetricsController,
     SettingsController,
+    ContactController,
   ],
   providers: [
     AppService,
@@ -33,6 +36,7 @@ import { SettingsService } from './settings/settings.service';
     CvOptimizationService,
     MetricsService,
     SettingsService,
+    ContactService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

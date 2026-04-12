@@ -17,8 +17,9 @@ export class GenerateEmailDto {
   @MaxLength(20000)
   jobDescription!: string;
 
+  @IsOptional()
   @IsEmail()
-  recipientEmail!: string;
+  recipientEmail?: string;
 
   @IsOptional()
   @IsString()
