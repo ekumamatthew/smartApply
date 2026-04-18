@@ -51,6 +51,11 @@ OBJECT_STORAGE_FORCE_PATH_STYLE=true
 AI_MAX_PER_MINUTE=20
 AI_MAX_PARSE_PER_DAY=4
 AI_MAX_GENERATE_PER_DAY=4
+# Temporary testing flags (server-side):
+# - AI_QUOTA_DISABLED=true bypasses trial quota and credit charging.
+# - AI_RATE_LIMIT_DISABLED=true bypasses the per-minute AI rate limit.
+AI_QUOTA_DISABLED=false
+AI_RATE_LIMIT_DISABLED=false
 
 # Billing / credits (Flutterwave)
 FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST_or_LIVE_...

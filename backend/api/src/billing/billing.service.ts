@@ -19,6 +19,10 @@ const CURRENCY_PAYMENT_OPTIONS: Record<string, string> = {
 
 @Injectable()
 export class BillingService {
+  private readonly quotaDisabled =
+    (process.env.AI_QUOTA_DISABLED ?? '').trim().toLowerCase() === 'true' ||
+    (process.env.AI_QUOTA_DISABLED ?? '').trim() === '1';
+
   private readonly creditsPerUsd = Number(process.env.CREDITS_PER_USD ?? 100);
   private readonly minPurchaseUsdCents = Number(
     process.env.MIN_PURCHASE_USD_CENTS ?? 100,
@@ -120,16 +124,23 @@ export class BillingService {
       this.getCreditBalance(userId),
     ]);
 
+    const parseLimit = this.quotaDisabled
+      ? Number.MAX_SAFE_INTEGER
+      : this.trialParseLimit;
+    const generateLimit = this.quotaDisabled
+      ? Number.MAX_SAFE_INTEGER
+      : this.trialGenerateLimit;
+
     return {
       trial: {
         parseUsed: usage.parseCvCount,
-        parseLimit: this.trialParseLimit,
-        parseRemaining: Math.max(0, this.trialParseLimit - usage.parseCvCount),
+        parseLimit,
+        parseRemaining: Math.max(0, parseLimit - usage.parseCvCount),
         generateUsed: usage.generateEmailCount,
-        generateLimit: this.trialGenerateLimit,
+        generateLimit,
         generateRemaining: Math.max(
           0,
-          this.trialGenerateLimit - usage.generateEmailCount,
+          generateLimit - usage.generateEmailCount,
         ),
       },
       credits: {
