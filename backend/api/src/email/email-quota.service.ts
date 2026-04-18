@@ -14,6 +14,10 @@ type UsageType = 'parse' | 'generate';
 export class EmailQuotaService {
   constructor(private readonly billingService: BillingService) {}
 
+  private readonly quotaDisabled = this.isTruthy(process.env.AI_QUOTA_DISABLED);
+  private readonly rateLimitDisabled = this.isTruthy(
+    process.env.AI_RATE_LIMIT_DISABLED,
+  );
   private readonly maxPerMinute = Number(process.env.AI_MAX_PER_MINUTE ?? 20);
   // "parse" bucket is used for CV optimization trial quota.
   private readonly maxParsePerDay = Number(
@@ -35,8 +39,15 @@ export class EmailQuotaService {
       throw new UnauthorizedException('Missing authenticated user id');
     }
 
-    this.enforceMinuteRateLimit(userId, usageType);
-    await this.enforceTrialQuota(userId, usageType);
+    if (!this.rateLimitDisabled) {
+      this.enforceMinuteRateLimit(userId, usageType);
+    }
+
+    // For user testing / temporary campaigns we can bypass trial quota + credits
+    // checks entirely (the AI routes still require authentication).
+    if (!this.quotaDisabled) {
+      await this.enforceTrialQuota(userId, usageType);
+    }
   }
 
   private enforceMinuteRateLimit(userId: string, usageType: UsageType) {
@@ -131,5 +142,17 @@ export class EmailQuotaService {
         this.minuteCounters.delete(key);
       }
     }
+  }
+
+  private isTruthy(value: string | undefined): boolean {
+    if (!value) return false;
+    const normalized = value.trim().toLowerCase();
+    return (
+      normalized === '1' ||
+      normalized === 'true' ||
+      normalized === 'yes' ||
+      normalized === 'y' ||
+      normalized === 'on'
+    );
   }
 }
