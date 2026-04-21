@@ -8,7 +8,7 @@ export type GenerateEmailPayload = {
   cv?: File
   cvId?: string
   jobDescription: string
-  recipientEmail: string
+  recipientEmail?: string
   recipientName?: string
   applicantName?: string
   additionalContext?: string
@@ -41,11 +41,13 @@ export async function generateApplicationEmail(
   const baseBody = {
     cvId: payload.cvId,
     jobDescription: payload.jobDescription,
-    recipientEmail: payload.recipientEmail,
     recipientName: payload.recipientName,
     applicantName: payload.applicantName,
     additionalContext: payload.additionalContext,
     tone: payload.tone,
+    ...(payload.recipientEmail && payload.recipientEmail.trim()
+      ? { recipientEmail: payload.recipientEmail }
+      : {}),
   }
 
   const response = payload.cv
@@ -53,7 +55,9 @@ export async function generateApplicationEmail(
         const formData = new FormData()
         formData.append("cv", payload.cv as File)
         formData.append("jobDescription", payload.jobDescription)
-        formData.append("recipientEmail", payload.recipientEmail)
+        if (payload.recipientEmail && payload.recipientEmail.trim()) {
+          formData.append("recipientEmail", payload.recipientEmail)
+        }
         if (payload.recipientName) formData.append("recipientName", payload.recipientName)
         if (payload.applicantName) formData.append("applicantName", payload.applicantName)
         if (payload.additionalContext)

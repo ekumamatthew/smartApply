@@ -458,11 +458,12 @@ export default function SettingsPage() {
             <div id="billing" className="rounded-lg border bg-card p-6">
               <h2 className="mb-4 text-lg font-semibold">Billing & Credits</h2>
               <p className="text-sm text-muted-foreground">
-                Free trial: 2 email generations and no CV optimizations. Upgrade
-                to keep going with credits.
+                Free
+                {/* Free trial: 2 email generations and no CV optimizations. Upgrade
+                to keep going with credits. */}
               </p>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
+              {/* <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <div className="rounded-lg border p-4">
                   <p className="text-xs text-muted-foreground">
                     Credit Balance
@@ -531,7 +532,7 @@ export default function SettingsPage() {
                     {checkoutMutation.isPending ? "Redirecting..." : "Checkout"}
                   </Button>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         )}
