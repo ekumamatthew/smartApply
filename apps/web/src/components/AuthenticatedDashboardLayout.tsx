@@ -118,7 +118,7 @@ export const AuthenticatedDashboardLayout = React.forwardRef<
                 secure.{" "}
                 <button
                   type="button"
-                  className="border border-amber-400 px-2 py-1 text-xs rounded-sm"
+                  className="border md:hidden border-amber-400 px-2 py-1 text-xs rounded-sm"
                   onClick={handleSendVerification}
                   disabled={isSendingVerification}
                 >

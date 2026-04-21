@@ -55,8 +55,9 @@ export default function PricingPage() {
                   <h3 className="text-2xl font-bold text-foreground">
                     Credit Package
                   </h3>
-                  <div className="text-4xl font-bold text-foreground">$10</div>
-                  <p className="text-lg text-muted-foreground">1,000 credits</p>
+                  Free
+                  {/* <div className="text-4xl font-bold text-foreground">$10</div>
+                  <p className="text-lg text-muted-foreground">1,000 credits</p> */}
                 </div>
 
                 <div className="space-y-4">
@@ -75,7 +76,7 @@ export default function PricingPage() {
                   <div className="flex items-center">
                     <Check className="mr-2 h-4 w-4 text-green-600" />
                     <span className="text-sm text-foreground">
-                      CV optimization 
+                      CV optimization
                     </span>
                   </div>
                   <div className="flex items-center">
