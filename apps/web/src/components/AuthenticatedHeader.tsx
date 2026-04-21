@@ -50,7 +50,7 @@ export function AuthenticatedHeader({ className }: AuthenticatedHeaderProps) {
     >
       <Header className={className} />
       {/* Auth Overlay */}
-      <div className="absolute top-4 right-4 flex items-center space-x-2">
+      <div className="absolute top-4 right-4 z-50 flex items-center space-x-2">
         {session ? (
           <>
             <Link
@@ -67,7 +67,7 @@ export function AuthenticatedHeader({ className }: AuthenticatedHeaderProps) {
             </button>
           </>
         ) : (
-          <>
+          <div >
             <Link
               href="/auth/signin"
               className="hidden px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-primary md:inline-flex"
@@ -80,7 +80,7 @@ export function AuthenticatedHeader({ className }: AuthenticatedHeaderProps) {
             >
               Get Started
             </Link>
-          </>
+          </div>
         )}
       </div>
     </div>
