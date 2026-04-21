@@ -318,7 +318,7 @@ export default function DashboardPage() {
       const email = await generateApplicationEmail({
         cvId: defaultCv.id,
         jobDescription: form.jobDescription,
-        recipientEmail: form.recipientEmail,
+        recipientEmail: form.recipientEmail.trim() || undefined,
         recipientName: form.recipientName || undefined,
         applicantName: form.applicantName || undefined,
         additionalContext: [form.additionalContext, form.jobUrl]

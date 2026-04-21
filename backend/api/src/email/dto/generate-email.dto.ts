@@ -4,6 +4,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class GenerateEmailDto {
@@ -18,6 +19,11 @@ export class GenerateEmailDto {
   jobDescription!: string;
 
   @IsOptional()
+  @ValidateIf(
+    (obj: GenerateEmailDto) =>
+      typeof obj.recipientEmail === 'string' &&
+      obj.recipientEmail.trim().length > 0,
+  )
   @IsEmail()
   recipientEmail?: string;
 
